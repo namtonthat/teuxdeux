@@ -1,8 +1,6 @@
-"""Dataclass models for the current (v4) TeuxDeux API.
+"""Dataclass models for the v4 TeuxDeux API (see API.md).
 
-Field shapes confirmed against the live workspace-scoped API (see API.md). Todos come
-from /api/v4/workspaces/{ws}/todos; the account from /api/v4/account. `from_api` keeps
-only the fields we model and ignores the ~20 other keys the API returns.
+`from_api` builds each model from an API dict, keeping modelled fields and ignoring the rest.
 """
 
 from __future__ import annotations

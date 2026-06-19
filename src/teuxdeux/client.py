@@ -1,7 +1,7 @@
-"""TeuxDeux client (httpx) for the current v4, workspace-scoped API.
+"""httpx client for the v4, workspace-scoped TeuxDeux API.
 
-Flask cookie-session login yields a `_txdxtxdx_token` cookie, which the v4 JSON API
-requires as an `Authorization: Bearer` token (cookies alone get a 401). See API.md.
+Login is a Flask cookie session that yields a `_txdxtxdx_token`; the JSON API wants it as
+an `Authorization: Bearer` token (cookies alone get a 401). See API.md.
 """
 
 from __future__ import annotations

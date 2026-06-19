@@ -1,7 +1,6 @@
-"""Command-line interface: `teuxdeux user` / `todos [--since|--until|--lookback]` / `set-done <id>`.
+"""CLI: `teuxdeux user | todos [--since|--until|--lookback] | set-done <id>`.
 
-Credentials come from env: TEUXDEUX_USERNAME and TEUXDEUX_PASSWORD.
-`todos` prints a JSON array; `set-done` flips a todo's done state (the vault sync uses both).
+Credentials from env (TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD); commands print JSON.
 """
 
 from __future__ import annotations

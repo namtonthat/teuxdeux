@@ -1,63 +1,55 @@
 # teuxdeux
 
-A small, typed, **unofficial** Python client for [TeuxDeux](https://teuxdeux.com).
+A small, typed, **unofficial** Python client + CLI for [TeuxDeux](https://teuxdeux.com).
+Built on `httpx` and stdlib `dataclasses` — no heavy dependencies. Reverse-engineered
+against the current **v4** API (`login → Bearer token → todos`); see [`API.md`](API.md).
 
-Built on `httpx` and stdlib `dataclasses` — no heavy dependencies. It was
-reverse-engineered against the current **v4** API (`login → Bearer token → todos`).
-For the underlying endpoints and auth flow, see [`API.md`](API.md).
+> [!NOTE]
+> TeuxDeux has no official API. This project is not affiliated with TeuxDeux, and the
+> API it targets may change without warning.
 
-> **Note** — TeuxDeux has no official API. This project is not affiliated with or
-> endorsed by TeuxDeux, and the API it targets may change without warning.
+## Why
 
-## Why this exists
-
-TeuxDeux is a lovely place to *keep* todos but a closed box to *build on* — there's no
-official API, export, or automation hook. This library opens that box: it gives you typed,
-programmatic, read/write access to your todos so they can flow into whatever you want.
-
-It started as the engine behind an Obsidian/NotePlan sync (pulling todos into daily notes and
-pushing completions back), but that integration lives in a separate repo — **this package is
-just the standalone client and CLI**, with no knowledge of Obsidian. Use it for anything:
-
-- mirror or back up your todos to Markdown, a database, or a spreadsheet
-- sync done-state with another task system or a personal dashboard
-- scripts, cron jobs, and reports over your todos (the CLI emits JSON)
-- any app or workflow that wants your TeuxDeux data as clean Python objects
+TeuxDeux has no official API, export, or automation hook. This library opens that box —
+typed, read/write access to your todos so they can flow anywhere.
 
 ```mermaid
 graph LR
     TD[("TeuxDeux v4 API")]
     C["teuxdeux<br/>client + CLI"]
     TD <-->|"login → Bearer token"| C
-    C --> O["Obsidian / NotePlan<br/>daily-note sync"]
-    C --> B["Markdown / DB / CSV<br/>export & backup"]
+    C --> O["Obsidian / NotePlan sync"]
+    C --> B["Markdown / DB / CSV export"]
     C --> D["dashboards & reports"]
-    C --> X["other apps & automations"]
+    C --> X["other automations"]
 ```
 
-(Obsidian is just one consumer — the client is the reusable core.)
+> [!TIP]
+> It began as the engine behind an Obsidian/NotePlan daily-note sync, but that lives in a
+> separate repo. **This package is just the standalone client and CLI.**
 
 ## Requirements
 
-- Python 3.11+
-- A TeuxDeux account
+- Python 3.11+ and a TeuxDeux account
 
 ## Quick start
 
 ```sh
-./scripts/setup.sh        # create a venv, install the package, and scaffold .env
+./scripts/setup.sh        # venv + install + scaffold .env
 ```
 
-Then open `.env` and fill in your credentials:
+Fill in your credentials in `.env`:
 
 ```ini
 TEUXDEUX_USERNAME=you@example.com
 TEUXDEUX_PASSWORD=your-password
-TEUXDEUX_WORKSPACE_ID=123456    # optional — discover it with `client.workspaces()`
+TEUXDEUX_WORKSPACE_ID=123456    # optional — find it with client.workspaces()
 ```
 
-Credentials are read from `.env` or from real environment variables (real env vars
-win). `.env` is gitignored — **never commit it.**
+Credentials load from `.env` or real environment variables (env vars win).
+
+> [!WARNING]
+> `.env` is gitignored — never commit your credentials.
 
 <details>
 <summary>Manual install (without the script)</summary>
@@ -70,18 +62,16 @@ cp .env.example .env
 
 ## Usage
 
-### Command line
+### CLI
 
 ```sh
-teuxdeux user                 # auth check → prints your account as JSON
-teuxdeux todos --lookback 3   # todos from the last 3 days → JSON array
-teuxdeux todos --since 2026-06-16
-teuxdeux todos --since 2026-06-20 --until 2026-06-20   # explicit window (may be in the future)
-teuxdeux set-done 12345       # mark a todo done (--undone to reverse)
+teuxdeux user                 # auth check → account JSON
+teuxdeux todos --lookback 3   # last 3 days → JSON array
+teuxdeux todos --since 2026-06-16 --until 2026-06-20   # explicit window (future dates OK)
+teuxdeux set-done 12345       # mark done (--undone to reverse)
 ```
 
-`--since` / `--until` accept any date, including future ones — `--lookback N` is just a
-shortcut for `--since N-days-ago --until today`.
+`--lookback N` is shorthand for `--since N-days-ago --until today`.
 
 ### Python
 
@@ -89,32 +79,29 @@ shortcut for `--since N-days-ago --until today`.
 import datetime as dt
 from teuxdeux import TeuxDeuxClient
 
-with TeuxDeuxClient(username, password) as client:
+with TeuxDeuxClient(username, password) as client:   # logs in on enter, closes on exit
     since = dt.date.today() - dt.timedelta(days=3)
     for todo in client.todos(since=since):
         print(todo.date, todo.to_markdown())
 ```
 
-The client is a context manager — it logs in on enter and closes the HTTP session
-on exit.
-
 ## Models
 
-Defined in [`src/teuxdeux/models.py`](src/teuxdeux/models.py) as `@dataclass`es. Each
-is built with `from_api(dict)`, which keeps the modelled fields and ignores the rest.
+Dataclasses in [`src/teuxdeux/models.py`](src/teuxdeux/models.py), built via
+`from_api(dict)` (keeps modelled fields, ignores the rest):
 
-| Model    | Key fields                                                        | Helpers                                          |
-| -------- | ----------------------------------------------------------------- | ------------------------------------------------ |
-| `Todo`   | `id`, `text`, `done`, `current_date`, `position`, …               | `is_someday`, `date`, `updated_at_dt`, `to_markdown()` |
-| `User`   | `id`, `email`, `display_name`, `timezone`, `confirmed`            | —                                                |
+| Model  | Key fields                                              | Helpers                                                |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------ |
+| `Todo` | `id`, `text`, `done`, `current_date`, `position`, …     | `is_someday`, `date`, `updated_at_dt`, `to_markdown()` |
+| `User` | `id`, `email`, `display_name`, `timezone`, `confirmed`  | —                                                      |
 
 Undated ("list") todos have `current_date = null`.
 
 ## Tests
 
 ```sh
-pytest            # offline model tests against tests/fixtures/*.json
-pytest -m live    # live login + fetch (needs TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD)
+pytest            # offline model tests (tests/fixtures/*.json)
+pytest -m live    # live login + fetch (needs real credentials)
 ```
 
 ## License
