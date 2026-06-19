@@ -19,7 +19,7 @@ uv venv && uv pip install -e ".[dev]"
 ## Usage
 
 ```sh
-cp .env.example .env   # then fill in TEUXDEUX_EMAIL / PASSWORD / WORKSPACE_ID (gitignored)
+cp .env.example .env   # then fill in TEUXDEUX_USERNAME / PASSWORD / WORKSPACE_ID (gitignored)
 
 teuxdeux user                # auth check
 teuxdeux todos --lookback 3  # todos from the last 3 days → JSON
@@ -32,7 +32,7 @@ Creds load from `.env` (via python-dotenv) or real env vars (env vars win).
 import datetime as dt
 from teuxdeux import TeuxDeuxClient
 
-with TeuxDeuxClient(email, password) as c:
+with TeuxDeuxClient(username, password) as c:
     for t in c.todos(since=dt.date.today() - dt.timedelta(days=3)):
         print(t.date, t.to_markdown())
 ```

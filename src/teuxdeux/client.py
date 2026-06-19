@@ -70,7 +70,7 @@ class TeuxDeuxClient:
         if resp.status_code >= 400:
             raise TeuxDeuxError(f"login failed (HTTP {resp.status_code})")
         if resp.url.path.rstrip("/").endswith("/login"):
-            raise TeuxDeuxError("login rejected — check TEUXDEUX_EMAIL / TEUXDEUX_PASSWORD")
+            raise TeuxDeuxError("login rejected — check TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD")
         return self
 
     def __enter__(self) -> "TeuxDeuxClient":

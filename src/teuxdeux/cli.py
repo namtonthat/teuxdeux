@@ -1,6 +1,6 @@
 """Command-line interface: `teuxdeux user` / `teuxdeux todos [--since YYYY-MM-DD]`.
 
-Credentials come from env: TEUXDEUX_EMAIL and TEUXDEUX_PASSWORD.
+Credentials come from env: TEUXDEUX_USERNAME and TEUXDEUX_PASSWORD.
 `todos` prints a JSON array (consumed by the vault's daily-note writer).
 """
 
@@ -18,11 +18,11 @@ from .client import TeuxDeuxClient, TeuxDeuxError
 
 
 def _credentials() -> tuple[str, str]:
-    email = os.environ.get("TEUXDEUX_EMAIL")
+    username = os.environ.get("TEUXDEUX_USERNAME")
     password = os.environ.get("TEUXDEUX_PASSWORD")
-    if not email or not password:
-        sys.exit("error: set TEUXDEUX_EMAIL and TEUXDEUX_PASSWORD in the environment")
-    return email, password
+    if not username or not password:
+        sys.exit("error: set TEUXDEUX_USERNAME and TEUXDEUX_PASSWORD in the environment")
+    return username, password
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -42,9 +42,9 @@ def main(argv: list[str] | None = None) -> None:
         since = (dt.date.today() - dt.timedelta(days=args.lookback)).isoformat()
         until = dt.date.today().isoformat()
 
-    email, password = _credentials()
+    username, password = _credentials()
     try:
-        with TeuxDeuxClient(email, password) as client:
+        with TeuxDeuxClient(username, password) as client:
             if args.cmd == "user":
                 print(client.user().model_dump_json(indent=2))
             else:
