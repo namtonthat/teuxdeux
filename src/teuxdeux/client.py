@@ -1,17 +1,8 @@
 """TeuxDeux client (httpx + pydantic) for the current v4, workspace-scoped API.
 
-Reverse-engineered from a live session (see API.md). TeuxDeux is a Flask app:
-
-  login   GET /login            -> scrape csrf_token (hidden field) + Flask session cookie
-          POST /login           -> form-encoded {username, password, csrf_token}; 302 /home
-                                   sets auth cookies (_txdxtxdx_token, refresh_token, …)
-  data    GET /api/v4/workspaces/{workspace_id}/...?since=YYYY-MM-DD&until=YYYY-MM-DD
-                                   authed by the session cookies (GET = no CSRF header)
-
-CONFIRMED: login mechanism, base/workspace path, the since/until date-range pattern.
-UNCONFIRMED: the exact todos endpoint (TODOS_PATH below is a best guess, sibling of the
-observed day-labels/for-date-range) and the todo JSON shape. `todos()` therefore reports the
-real field names it receives if they don't match `models.Todo`, so one run reveals the shape.
+Flask cookie-session login, then GET /api/v4/workspaces/{id}/... with since/until. See API.md
+for the full auth flow. TODOS_PATH and the Todo shape are the one unconfirmed bit — todos()
+prints the real field names on a parse mismatch so the first authed run reveals them.
 """
 
 from __future__ import annotations
