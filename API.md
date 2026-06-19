@@ -54,7 +54,8 @@ All endpoints below require the `Authorization: Bearer` header.
 
 **Notes**
 
-- `since` / `until` are `YYYY-MM-DD` and **inclusive**.
+- `since` / `until` are `YYYY-MM-DD` and **inclusive**, and may be **future** dates
+  (e.g. fetching tomorrow's planned todos).
 - Toggling done is its own sub-resource: `PATCH /todos/{id}` exists but rejects
   `{"done": …}` with `422 "Unknown field"`. Use `POST /todos/{id}/state` instead.
 - Mutating requests send the same `Origin` / `Referer` headers as the browser.

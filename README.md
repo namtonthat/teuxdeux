@@ -48,8 +48,12 @@ cp .env.example .env
 teuxdeux user                 # auth check → prints your account as JSON
 teuxdeux todos --lookback 3   # todos from the last 3 days → JSON array
 teuxdeux todos --since 2026-06-16
+teuxdeux todos --since 2026-06-20 --until 2026-06-20   # explicit window (may be in the future)
 teuxdeux set-done 12345       # mark a todo done (--undone to reverse)
 ```
+
+`--since` / `--until` accept any date, including future ones — `--lookback N` is just a
+shortcut for `--since N-days-ago --until today`.
 
 ### Python
 
