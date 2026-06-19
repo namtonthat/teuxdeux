@@ -49,6 +49,7 @@ class TeuxDeuxClient:
     ) -> None:
         self._username = username
         self._password = password
+        self._base = base_url.rstrip("/")
         self._ws = str(workspace_id or os.environ.get("TEUXDEUX_WORKSPACE_ID") or "").strip()
         self._csrf: str | None = None
         self._http = httpx.Client(
@@ -71,6 +72,8 @@ class TeuxDeuxClient:
             "/login",
             data={"username": self._username, "password": self._password,
                   "csrf_token": self._csrf},
+            # match the browser — Flask-WTF rejects HTTPS POSTs without a same-origin Referer
+            headers={"Origin": self._base, "Referer": f"{self._base}/login"},
         )
         # Success redirects to /home; a rejected login re-renders /login.
         if resp.status_code >= 400:
