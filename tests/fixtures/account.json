@@ -1,0 +1,10 @@
+{
+  "id": 1001,
+  "email": "user@example.com",
+  "display_name": "Example User",
+  "timezone": "UTC",
+  "confirmed": true,
+  "created_at": "2020-01-15T09:30:00+0000",
+  "subscription": {"plan": "monthly", "standing": "good"},
+  "websocket_token": "ignored-extra-field"
+}

@@ -1,14 +1,13 @@
 # teuxdeux
 
-Typed, unofficial **TeuxDeux** client — `httpx` + `pydantic`. Pulls your todos out of
-TeuxDeux (e.g. into an Obsidian/NotePlan vault) with clean data models as the reference point.
+Typed, unofficial **TeuxDeux** client — `httpx` + stdlib `dataclasses`, no heavy deps. Pulls
+your todos out of TeuxDeux (e.g. into an Obsidian/NotePlan vault) with clean data models.
 
 ## Status
 
-TeuxDeux has no official API. The endpoints in `client.py` are the **legacy** ones from
-[`badboy/teuxdeux`](https://github.com/badboy/teuxdeux), which no longer work after TeuxDeux's
-rebuild. The models, CLI, and tests are real and passing; the live fetch needs the current
-endpoints captured — see [`API.md`](API.md).
+TeuxDeux has no official API; this targets the current **v4** API, reverse-engineered and
+confirmed end-to-end (login → Bearer token → todos). See [`API.md`](API.md) for the full
+auth flow and endpoints.
 
 ## Install
 
@@ -39,15 +38,17 @@ with TeuxDeuxClient(username, password) as c:
 
 ## Data models — `src/teuxdeux/models.py`
 
-- **`Todo`**: `id, todo, done, do_on, position, user_id, updated_at` + `is_someday`, `date`,
-  `to_markdown()`. Someday items use `do_on = 1989-12-DD`.
-- **`User`**: `id, login, email, time_zone, utc_offset`.
+- **`Todo`**: `id, text, done, current_date, position, list_id, workspace_id, uuid,
+  has_details, recurring_todo_id, created_at, updated_at` + `is_someday`, `date`,
+  `updated_at_dt`, `to_markdown()`. Undated (list) todos have `current_date = null`.
+- **`User`**: `id, email, display_name, timezone, confirmed`.
+
+Both are `@dataclass`es; `from_api(dict)` builds one while ignoring the extra keys the API returns.
 
 ## Tests
 
 ```sh
-pytest          # model tests — offline, against tests/fixtures/*.json
-teuxdeux user   # live auth check — needs working endpoints (see Status)
+pytest               # model tests — offline, against tests/fixtures/*.json
+pytest -m live       # live login + fetch — needs TEUXDEUX_USERNAME/PASSWORD
+teuxdeux user        # quick live auth check
 ```
-
-Credit: endpoint reference and fixtures adapted from [`badboy/teuxdeux`](https://github.com/badboy/teuxdeux).

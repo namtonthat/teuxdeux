@@ -1,20 +1,4 @@
 [
-  {
-    "id": 1,
-    "updated_at": 1298486839,
-    "position": 0,
-    "do_on": "2011-07-01",
-    "user_id": 42,
-    "todo": "be awesome",
-    "done": false
-  },
-  {
-    "id": 2,
-    "updated_at": 1298486839,
-    "position": 0,
-    "do_on": "2011-05-26",
-    "user_id": 42,
-    "todo": "write specs",
-    "done": true
-  }
+  {"id": 1, "text": "write specs", "done": true, "current_date": "2026-06-17", "position": 0, "workspace_id": 123456},
+  {"id": 2, "text": "review PR", "done": false, "current_date": "2026-06-17", "position": 1, "workspace_id": 123456}
 ]

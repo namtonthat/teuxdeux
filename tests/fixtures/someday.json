@@ -1,9 +1,1 @@
-{
-  "id": 12346,
-  "updated_at": 1298486839,
-  "position": 0,
-  "do_on": "1989-12-01",
-  "user_id": 42,
-  "todo": "new someday",
-  "done": false
-}
+{"id": 99, "text": "learn astrophotography", "done": false, "current_date": null, "list_id": 4242, "position": 0, "workspace_id": 123456}

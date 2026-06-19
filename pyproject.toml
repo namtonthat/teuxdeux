@@ -5,13 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "teuxdeux"
 version = "0.1.0"
-description = "Unofficial TeuxDeux REST client (httpx + pydantic)"
+description = "Unofficial TeuxDeux REST client (httpx + dataclasses)"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Nam Tonthat" }]
 dependencies = [
     "httpx>=0.27",
-    "pydantic>=2.6",
     "python-dotenv>=1.0",
 ]
 
@@ -27,4 +26,4 @@ packages = ["src/teuxdeux"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-markers = ["live: hits the real TeuxDeux API (needs TEUXDEUX_EMAIL/PASSWORD; opt-in)"]
+markers = ["live: hits the real TeuxDeux API (needs TEUXDEUX_USERNAME/PASSWORD; opt-in)"]

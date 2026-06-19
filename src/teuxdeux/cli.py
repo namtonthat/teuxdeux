@@ -7,6 +7,7 @@ Credentials come from env: TEUXDEUX_USERNAME and TEUXDEUX_PASSWORD.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import datetime as dt
 import json
 import os
@@ -46,10 +47,10 @@ def main(argv: list[str] | None = None) -> None:
     try:
         with TeuxDeuxClient(username, password) as client:
             if args.cmd == "user":
-                print(client.user().model_dump_json(indent=2))
+                print(json.dumps(dataclasses.asdict(client.user()), indent=2))
             else:
                 items = client.todos(since=since, until=until)
-                print(json.dumps([t.model_dump() for t in items], indent=2))
+                print(json.dumps([t.to_dict() for t in items], indent=2))
     except TeuxDeuxError as e:
         sys.exit(f"error: {e}")
 

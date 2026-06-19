@@ -1,8 +1,7 @@
 """TeuxDeux client (httpx + pydantic) for the current v4, workspace-scoped API.
 
-Flask cookie-session login, then GET /api/v4/workspaces/{id}/... with since/until. See API.md
-for the full auth flow. TODOS_PATH and the Todo shape are the one unconfirmed bit — todos()
-prints the real field names on a parse mismatch so the first authed run reveals them.
+Flask cookie-session login yields a `_txdxtxdx_token` cookie, which the v4 JSON API
+requires as an `Authorization: Bearer` token (cookies alone get a 401). See API.md.
 """
 
 from __future__ import annotations
@@ -16,9 +15,11 @@ import httpx
 from .models import Todo, User
 
 BASE_URL = "https://teuxdeux.com"
-# {ws} = numeric workspace id (the live capture used 123456).
-TODOS_PATH = "/api/v4/workspaces/{ws}/todos/for-date-range"  # BEST GUESS — verify (API.md)
-ME_PATH = "/api/v4/workspaces/{ws}/me"  # best guess; only used by user()
+# {ws} = numeric workspace id (find yours via workspaces(); the default account uses 123456).
+TODOS_PATH = "/api/v4/workspaces/{ws}/todos"  # ?since=&until= → {"todos": [...]}
+WORKSPACES_PATH = "/api/v4/workspaces"  # → {"workspaces": [...]}
+ACCOUNT_PATH = "/api/v4/account"  # → {"account": {...}}
+_TOKEN_COOKIE = "_txdxtxdx_token"
 _CSRF_RE = re.compile(r'name="csrf_token"[^>]*\bvalue="([^"]+)"')
 _CSRF_RE_ALT = re.compile(r'\bvalue="([^"]+)"[^>]*name="csrf_token"')
 
@@ -43,6 +44,7 @@ class TeuxDeuxClient:
         self._base = base_url.rstrip("/")
         self._ws = str(workspace_id or os.environ.get("TEUXDEUX_WORKSPACE_ID") or "").strip()
         self._csrf: str | None = None
+        self._token: str | None = None  # _txdxtxdx_token, sent as Authorization: Bearer
         self._http = httpx.Client(
             base_url=base_url,
             timeout=timeout,
@@ -71,6 +73,10 @@ class TeuxDeuxClient:
             raise TeuxDeuxError(f"login failed (HTTP {resp.status_code})")
         if resp.url.path.rstrip("/").endswith("/login"):
             raise TeuxDeuxError("login rejected — check TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD")
+        # The v4 JSON API authenticates with this cookie as a Bearer token (cookies → 401).
+        self._token = self._http.cookies.get(_TOKEN_COOKIE)
+        if not self._token:
+            raise TeuxDeuxError(f"logged in but no {_TOKEN_COOKIE} cookie — auth shape changed")
         return self
 
     def __enter__(self) -> "TeuxDeuxClient":
@@ -92,28 +98,35 @@ class TeuxDeuxClient:
         return self._ws
 
     def _get_json(self, path: str, **params: object):
+        if not self._token:
+            raise TeuxDeuxError("not logged in — call login() (or use the client as a context manager)")
+        headers = {"Accept": "application/json", "Authorization": f"Bearer {self._token}"}
         try:
-            r = self._http.get(path, params=params or None, headers={"Accept": "application/json"})
+            r = self._http.get(path, params=params or None, headers=headers)
             r.raise_for_status()
             return r.json()
         except httpx.HTTPStatusError as e:
             raise TeuxDeuxError(
-                f"{e.response.status_code} {e.response.reason_phrase} for {path} "
-                "(endpoint/auth unconfirmed — see API.md)"
+                f"{e.response.status_code} {e.response.reason_phrase} for {path}"
             ) from e
         except httpx.HTTPError as e:
             raise TeuxDeuxError(f"request failed for {path}: {e}") from e
 
     # ── endpoints ─────────────────────────────────────────────────────────
     def user(self) -> User:
-        return User.model_validate(self._get_json(ME_PATH.format(ws=self._ws_required())))
+        """The authenticated account."""
+        return User.from_api(self._get_json(ACCOUNT_PATH)["account"])
+
+    def workspaces(self) -> list[dict]:
+        """Raw workspace records (id, name, list_sets, …) — use to find a workspace id."""
+        return self._get_json(WORKSPACES_PATH).get("workspaces", [])
 
     def todos(
         self,
         since: dt.date | str | None = None,
         until: dt.date | str | None = None,
     ) -> list[Todo]:
-        """Todos in [since, until]. The v4 endpoint takes since/until (YYYY-MM-DD)."""
+        """Dated todos in [since, until] (YYYY-MM-DD)."""
         def iso(d):
             return d.isoformat() if isinstance(d, dt.date) else d
 
@@ -124,16 +137,4 @@ class TeuxDeuxClient:
             params["until"] = iso(until)
 
         data = self._get_json(TODOS_PATH.format(ws=self._ws_required()), **params)
-        items = data if isinstance(data, list) else (
-            data.get("todos") or data.get("items") or data.get("data") or []
-        )
-        try:
-            return [Todo.model_validate(t) for t in items]
-        except Exception as e:  # noqa: BLE001 — turn a shape mismatch into a discovery aid
-            sample = items[0] if items else {}
-            keys = list(sample.keys()) if isinstance(sample, dict) else type(sample).__name__
-            raise TeuxDeuxError(
-                f"got {len(items)} item(s) from {TODOS_PATH.format(ws=self._ws)} but couldn't "
-                f"parse them into Todo ({e}). Actual field names: {keys}. "
-                "Map these in models.Todo (Field(alias=...)) — see API.md."
-            ) from e
+        return [Todo.from_api(t) for t in data.get("todos", [])]

@@ -1,62 +1,95 @@
-"""Pydantic data models for TeuxDeux entities.
+"""Dataclass models for the current (v4) TeuxDeux API.
 
-Field shapes are taken from the legacy API fixtures (credit: github.com/badboy/teuxdeux).
-The current TeuxDeux app may return a different shape — when you capture the live API,
-adjust these models and add an alias for any renamed field via `Field(alias=...)`.
+Field shapes confirmed against the live workspace-scoped API (see API.md). Todos come
+from /api/v4/workspaces/{ws}/todos; the account from /api/v4/account. `from_api` keeps
+only the fields we model and ignores the ~20 other keys the API returns.
 """
 
 from __future__ import annotations
 
+import dataclasses as dc
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict
-
-# TeuxDeux encodes "Someday" items with a sentinel year; do_on = 1989-12-DD where
-# DD is the someday-column position (01 = leftmost), not a real calendar date.
-SOMEDAY_YEAR = 1989
+# TeuxDeux's API timestamps look like "2026-05-27T08:48:39+0000".
+_TS = "%Y-%m-%dT%H:%M:%S%z"
 
 
-class User(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+def _parse_ts(s: str | None) -> dt.datetime | None:
+    if not s:
+        return None
+    try:
+        return dt.datetime.strptime(s, _TS)
+    except ValueError:
+        try:
+            return dt.datetime.fromisoformat(s)
+        except ValueError:
+            return None
+
+
+def _from_api(cls, data: dict):
+    """Build a dataclass from an API dict, ignoring unknown keys."""
+    known = {f.name for f in dc.fields(cls)}
+    return cls(**{k: v for k, v in data.items() if k in known})
+
+
+@dc.dataclass(slots=True)
+class User:
+    """The authenticated account (/api/v4/account → {"account": {...}})."""
 
     id: int
-    login: str | None = None  # legacy field; may be absent on the v3 /me shape
     email: str | None = None
-    time_zone: str | None = None
-    utc_offset: int | None = None  # minutes east of UTC
+    display_name: str | None = None
+    timezone: str | None = None
+    confirmed: bool = False
+
+    @classmethod
+    def from_api(cls, data: dict) -> "User":
+        return _from_api(cls, data)
 
 
-class Todo(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+@dc.dataclass(slots=True)
+class Todo:
+    """A todo from /api/v4/workspaces/{ws}/todos."""
 
     id: int
-    todo: str  # the task text
+    text: str
     done: bool = False
-    do_on: str  # "YYYY-MM-DD", or "1989-12-DD" for someday items
+    current_date: str | None = None  # "YYYY-MM-DD"; null for undated (list/someday) todos
     position: int = 0
-    user_id: int | None = None
-    updated_at: int | None = None  # unix epoch seconds
+    list_id: int | None = None
+    workspace_id: int | None = None
+    uuid: str | None = None
+    has_details: bool = False
+    recurring_todo_id: int | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_api(cls, data: dict) -> "Todo":
+        return _from_api(cls, data)
 
     @property
     def is_someday(self) -> bool:
-        return self.do_on.startswith(f"{SOMEDAY_YEAR}-")
+        """True for undated todos (parked on a list rather than a calendar day)."""
+        return not self.current_date
 
     @property
     def date(self) -> dt.date | None:
-        """Calendar date for a dated todo, or None for someday items / unparseable."""
-        if self.is_someday:
+        """Calendar date for a dated todo, or None for undated/unparseable."""
+        if not self.current_date:
             return None
         try:
-            return dt.date.fromisoformat(self.do_on)
+            return dt.date.fromisoformat(self.current_date)
         except ValueError:
             return None
 
     @property
     def updated_at_dt(self) -> dt.datetime | None:
-        if self.updated_at is None:
-            return None
-        return dt.datetime.fromtimestamp(self.updated_at, dt.timezone.utc)
+        return _parse_ts(self.updated_at)
 
     def to_markdown(self) -> str:
-        """NotePlan/Obsidian checkbox line, e.g. '- [x] write specs'."""
-        return f"- [{'x' if self.done else ' '}] {self.todo.strip()}"
+        """NotePlan/Obsidian checkbox line, e.g. '* [x] write specs'."""
+        return f"* [{'x' if self.done else ' '}] {self.text.strip()}"
+
+    def to_dict(self) -> dict:
+        return dc.asdict(self)
