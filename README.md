@@ -1,31 +1,25 @@
 # teuxdeux
 
-Typed, unofficial **TeuxDeux** client — `httpx` + stdlib `dataclasses`, no heavy deps. Pulls
-your todos out of TeuxDeux (e.g. into an Obsidian/NotePlan vault) with clean data models.
-
-## Status
-
-TeuxDeux has no official API; this targets the current **v4** API, reverse-engineered and
-confirmed end-to-end (login → Bearer token → todos). See [`API.md`](API.md) for the full
-auth flow and endpoints.
+Typed, unofficial **TeuxDeux** client — `httpx` + stdlib `dataclasses`, no heavy deps.
+Reverse-engineered against the current **v4** API (login → Bearer token → todos); see
+[`API.md`](API.md) for the endpoints and auth flow.
 
 ## Install
 
 ```sh
 uv venv && uv pip install -e ".[dev]"
+cp .env.example .env   # fill in TEUXDEUX_USERNAME / PASSWORD / WORKSPACE_ID (gitignored)
 ```
+
+Creds load from `.env` or real env vars (env vars win).
 
 ## Usage
 
 ```sh
-cp .env.example .env   # then fill in TEUXDEUX_USERNAME / PASSWORD / WORKSPACE_ID (gitignored)
-
-teuxdeux user                # auth check
-teuxdeux todos --lookback 3  # todos from the last 3 days → JSON
+teuxdeux user                # auth check → account JSON
+teuxdeux todos --lookback 3  # last 3 days of todos → JSON array
 teuxdeux todos --since 2026-06-16
 ```
-
-Creds load from `.env` (via python-dotenv) or real env vars (env vars win).
 
 ```python
 import datetime as dt
@@ -36,19 +30,17 @@ with TeuxDeuxClient(username, password) as c:
         print(t.date, t.to_markdown())
 ```
 
-## Data models — `src/teuxdeux/models.py`
+## Models — `src/teuxdeux/models.py`
 
-- **`Todo`**: `id, text, done, current_date, position, list_id, workspace_id, uuid,
-  has_details, recurring_todo_id, created_at, updated_at` + `is_someday`, `date`,
+`@dataclass`es built via `from_api(dict)`, which keeps modelled fields and ignores the rest.
+
+- **`Todo`**: `id, text, done, current_date, position, …` + `is_someday`, `date`,
   `updated_at_dt`, `to_markdown()`. Undated (list) todos have `current_date = null`.
 - **`User`**: `id, email, display_name, timezone, confirmed`.
-
-Both are `@dataclass`es; `from_api(dict)` builds one while ignoring the extra keys the API returns.
 
 ## Tests
 
 ```sh
-pytest               # model tests — offline, against tests/fixtures/*.json
-pytest -m live       # live login + fetch — needs TEUXDEUX_USERNAME/PASSWORD
-teuxdeux user        # quick live auth check
+pytest          # offline model tests against tests/fixtures/*.json
+pytest -m live  # live login + fetch (needs TEUXDEUX_USERNAME/PASSWORD)
 ```

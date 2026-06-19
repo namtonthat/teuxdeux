@@ -1,4 +1,4 @@
-"""TeuxDeux client (httpx + pydantic) for the current v4, workspace-scoped API.
+"""TeuxDeux client (httpx) for the current v4, workspace-scoped API.
 
 Flask cookie-session login yields a `_txdxtxdx_token` cookie, which the v4 JSON API
 requires as an `Authorization: Bearer` token (cookies alone get a 401). See API.md.
