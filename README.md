@@ -9,6 +9,34 @@ For the underlying endpoints and auth flow, see [`API.md`](API.md).
 > **Note** — TeuxDeux has no official API. This project is not affiliated with or
 > endorsed by TeuxDeux, and the API it targets may change without warning.
 
+## Why this exists
+
+TeuxDeux is a lovely place to *keep* todos but a closed box to *build on* — there's no
+official API, export, or automation hook. This library opens that box: it gives you typed,
+programmatic, read/write access to your todos so they can flow into whatever you want.
+
+It started as the engine behind an Obsidian/NotePlan sync (pulling todos into daily notes and
+pushing completions back), but that integration lives in a separate repo — **this package is
+just the standalone client and CLI**, with no knowledge of Obsidian. Use it for anything:
+
+- mirror or back up your todos to Markdown, a database, or a spreadsheet
+- sync done-state with another task system or a personal dashboard
+- scripts, cron jobs, and reports over your todos (the CLI emits JSON)
+- any app or workflow that wants your TeuxDeux data as clean Python objects
+
+```mermaid
+graph LR
+    TD[("TeuxDeux v4 API")]
+    C["teuxdeux<br/>client + CLI"]
+    TD <-->|"login → Bearer token"| C
+    C --> O["Obsidian / NotePlan<br/>daily-note sync"]
+    C --> B["Markdown / DB / CSV<br/>export & backup"]
+    C --> D["dashboards & reports"]
+    C --> X["other apps & automations"]
+```
+
+(Obsidian is just one consumer — the client is the reusable core.)
+
 ## Requirements
 
 - Python 3.11+
