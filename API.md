@@ -27,7 +27,11 @@ Confirmed endpoints (all need the Bearer header):
 | `GET /api/v4/workspaces` | `{"workspaces": [...]}` — id, name, list_sets, … |
 | `GET /api/v4/workspaces/{ws}` | `{"workspace", "calendar_todos", "recurring_todos"}` |
 | `GET /api/v4/workspaces/{ws}/todos?since=&until=` | `{"todos": [...]}` — dated todos |
+| `POST /api/v4/workspaces/{ws}/todos/{id}/state` | body `{"done": bool}` → `{"todo": {...}}` — toggle done |
 | `GET /api/v4/workspaces/{ws}/day-labels?since=&until=` | `{"day_labels": [...]}` |
+
+`PATCH /todos/{id}` exists but rejects `{"done": ...}` (422 "Unknown field"); done-state is its
+own `/state` sub-resource. Mutations send `Origin`/`Referer` headers like the browser.
 
 `since`/`until` are `YYYY-MM-DD` (inclusive).
 

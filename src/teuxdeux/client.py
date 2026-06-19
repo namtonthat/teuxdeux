@@ -17,6 +17,7 @@ from .models import Todo, User
 BASE_URL = "https://teuxdeux.com"
 # {ws} = numeric workspace id (find yours via workspaces(); the default account uses 123456).
 TODOS_PATH = "/api/v4/workspaces/{ws}/todos"  # ?since=&until= → {"todos": [...]}
+STATE_PATH = "/api/v4/workspaces/{ws}/todos/{id}/state"  # POST {"done": bool} → {"todo": {...}}
 WORKSPACES_PATH = "/api/v4/workspaces"  # → {"workspaces": [...]}
 ACCOUNT_PATH = "/api/v4/account"  # → {"account": {...}}
 _TOKEN_COOKIE = "_txdxtxdx_token"
@@ -138,3 +139,24 @@ class TeuxDeuxClient:
 
         data = self._get_json(TODOS_PATH.format(ws=self._ws_required()), **params)
         return [Todo.from_api(t) for t in data.get("todos", [])]
+
+    def set_done(self, todo_id: int, done: bool = True) -> Todo:
+        """Mark a todo done/undone — POST /todos/{id}/state with {"done": bool}."""
+        if not self._token:
+            raise TeuxDeuxError("not logged in — call login() first")
+        path = STATE_PATH.format(ws=self._ws_required(), id=todo_id)
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {self._token}",
+            "Content-Type": "application/json",
+            "Origin": self._base,
+            "Referer": f"{self._base}/home",
+        }
+        try:
+            r = self._http.post(path, json={"done": done}, headers=headers)
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise TeuxDeuxError(f"{e.response.status_code} {e.response.reason_phrase} for {path}") from e
+        except httpx.HTTPError as e:
+            raise TeuxDeuxError(f"request failed for {path}: {e}") from e
+        return Todo.from_api(r.json()["todo"])

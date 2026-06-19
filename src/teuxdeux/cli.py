@@ -1,7 +1,7 @@
-"""Command-line interface: `teuxdeux user` / `teuxdeux todos [--since YYYY-MM-DD]`.
+"""Command-line interface: `teuxdeux user` / `todos [--since|--lookback]` / `set-done <id>`.
 
 Credentials come from env: TEUXDEUX_USERNAME and TEUXDEUX_PASSWORD.
-`todos` prints a JSON array (consumed by the vault's daily-note writer).
+`todos` prints a JSON array; `set-done` flips a todo's done state (the vault sync uses both).
 """
 
 from __future__ import annotations
@@ -35,6 +35,9 @@ def main(argv: list[str] | None = None) -> None:
     todos.add_argument("--since", metavar="YYYY-MM-DD", help="only todos on/after this date")
     todos.add_argument("--lookback", type=int, metavar="N",
                        help="shortcut for --since N days ago")
+    done = sub.add_parser("set-done", help="mark a todo done (or undone) by id")
+    done.add_argument("id", type=int, help="todo id")
+    done.add_argument("--undone", action="store_true", help="mark not-done instead of done")
     args = parser.parse_args(argv)
 
     since = args.__dict__.get("since")
@@ -48,6 +51,9 @@ def main(argv: list[str] | None = None) -> None:
         with TeuxDeuxClient(username, password) as client:
             if args.cmd == "user":
                 print(json.dumps(dataclasses.asdict(client.user()), indent=2))
+            elif args.cmd == "set-done":
+                t = client.set_done(args.id, done=not args.undone)
+                print(json.dumps(t.to_dict(), indent=2))
             else:
                 items = client.todos(since=since, until=until)
                 print(json.dumps([t.to_dict() for t in items], indent=2))
