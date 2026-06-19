@@ -24,7 +24,37 @@ sets a `_barebones_session` cookie.
 ### User fields
 `id` int · `login` str · `email` str · `time_zone` str · `utc_offset` int (minutes).
 
-## Current API (v3) — reconnaissance (2026-06)
+## Current API (v4) — confirmed from a live session (2026-06)
+
+Base: `https://teuxdeux.com/api/v4/workspaces/{workspace_id}` (workspace-scoped; the live
+capture used workspace `123456`). Date-range endpoints take `?since=YYYY-MM-DD&until=YYYY-MM-DD`
+— exactly the lookback window we want.
+
+Observed GETs:
+- `/day-labels/for-date-range?since=…&until=…` — per-day labels for a range
+- `/day-labels`, `/day-labels/locales/{year}`, `/day-labels/subscriptions`
+- `/settings/focus-modes`
+
+### Auth — CONFIRMED (Flask, cookie session)
+TeuxDeux is a Flask app. Login:
+1. `GET /login` → HTML form with hidden `csrf_token`; sets a `session` cookie (Flask, signed;
+   contains the csrf_token).
+2. `POST /login` — `application/x-www-form-urlencoded`, body `username` + `password` +
+   `csrf_token`. Success → **302 `/home`**, sets auth cookies: `_txdxtxdx_token` (access),
+   `refresh_token` (HttpOnly), `remember_token` (HttpOnly), new `session`.
+3. `GET /api/v4/...` rides those cookies. GETs need no CSRF header.
+
+`client.py` implements exactly this.
+
+### Still needed (one capture): the todos endpoint + shape
+The request whose response holds your **task text** — best guess `/todos/for-date-range`
+(sibling of the observed `day-labels/for-date-range`). `client.py`'s `todos()` will print the
+real field names if they don't match `models.Todo`, so the first authed run reveals the shape.
+Confirm: the exact path, and the todo JSON keys (likely `text`/`completed`/`current_date`).
+
+---
+
+## Legacy probe (v3) — superseded by v4 above
 
 Probed from the live site without logging in:
 

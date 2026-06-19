@@ -34,8 +34,10 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     since = args.__dict__.get("since")
+    until = None
     if args.__dict__.get("lookback") is not None:
         since = (dt.date.today() - dt.timedelta(days=args.lookback)).isoformat()
+        until = dt.date.today().isoformat()
 
     email, password = _credentials()
     try:
@@ -43,7 +45,7 @@ def main(argv: list[str] | None = None) -> None:
             if args.cmd == "user":
                 print(client.user().model_dump_json(indent=2))
             else:
-                items = client.todos(since=since)
+                items = client.todos(since=since, until=until)
                 print(json.dumps([t.model_dump() for t in items], indent=2))
     except TeuxDeuxError as e:
         sys.exit(f"error: {e}")
