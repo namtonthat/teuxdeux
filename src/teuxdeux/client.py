@@ -15,7 +15,7 @@ import httpx
 from .models import Todo, User
 
 BASE_URL = "https://teuxdeux.com"
-# {ws} = numeric workspace id (find yours via workspaces(); the default account uses 123456).
+# {ws} = numeric workspace id (find yours via workspaces() or set TEUXDEUX_WORKSPACE_ID).
 TODOS_PATH = "/api/v4/workspaces/{ws}/todos"  # ?since=&until= → {"todos": [...]}
 STATE_PATH = "/api/v4/workspaces/{ws}/todos/{id}/state"  # POST {"done": bool} → {"todo": {...}}
 WORKSPACES_PATH = "/api/v4/workspaces"  # → {"workspaces": [...]}
@@ -94,7 +94,7 @@ class TeuxDeuxClient:
         if not self._ws:
             raise TeuxDeuxError(
                 "workspace id not set — pass workspace_id=… or set TEUXDEUX_WORKSPACE_ID "
-                "(yours from the capture is 123456)"
+                "(find yours via workspaces())"
             )
         return self._ws
 

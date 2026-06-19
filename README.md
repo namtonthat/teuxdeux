@@ -1,46 +1,90 @@
 # teuxdeux
 
-Typed, unofficial **TeuxDeux** client — `httpx` + stdlib `dataclasses`, no heavy deps.
-Reverse-engineered against the current **v4** API (login → Bearer token → todos); see
-[`API.md`](API.md) for the endpoints and auth flow.
+A small, typed, **unofficial** Python client for [TeuxDeux](https://teuxdeux.com).
 
-## Install
+Built on `httpx` and stdlib `dataclasses` — no heavy dependencies. It was
+reverse-engineered against the current **v4** API (`login → Bearer token → todos`).
+For the underlying endpoints and auth flow, see [`API.md`](API.md).
+
+> **Note** — TeuxDeux has no official API. This project is not affiliated with or
+> endorsed by TeuxDeux, and the API it targets may change without warning.
+
+## Requirements
+
+- Python 3.11+
+- A TeuxDeux account
+
+## Quick start
+
+```sh
+./scripts/setup.sh        # create a venv, install the package, and scaffold .env
+```
+
+Then open `.env` and fill in your credentials:
+
+```ini
+TEUXDEUX_USERNAME=you@example.com
+TEUXDEUX_PASSWORD=your-password
+TEUXDEUX_WORKSPACE_ID=123456    # optional — discover it with `client.workspaces()`
+```
+
+Credentials are read from `.env` or from real environment variables (real env vars
+win). `.env` is gitignored — **never commit it.**
+
+<details>
+<summary>Manual install (without the script)</summary>
 
 ```sh
 uv venv && uv pip install -e ".[dev]"
-cp .env.example .env   # fill in TEUXDEUX_USERNAME / PASSWORD / WORKSPACE_ID (gitignored)
+cp .env.example .env
 ```
-
-Creds load from `.env` or real env vars (env vars win).
+</details>
 
 ## Usage
 
+### Command line
+
 ```sh
-teuxdeux user                # auth check → account JSON
-teuxdeux todos --lookback 3  # last 3 days of todos → JSON array
+teuxdeux user                 # auth check → prints your account as JSON
+teuxdeux todos --lookback 3   # todos from the last 3 days → JSON array
 teuxdeux todos --since 2026-06-16
+teuxdeux set-done 12345       # mark a todo done (--undone to reverse)
 ```
+
+### Python
 
 ```python
 import datetime as dt
 from teuxdeux import TeuxDeuxClient
 
-with TeuxDeuxClient(username, password) as c:
-    for t in c.todos(since=dt.date.today() - dt.timedelta(days=3)):
-        print(t.date, t.to_markdown())
+with TeuxDeuxClient(username, password) as client:
+    since = dt.date.today() - dt.timedelta(days=3)
+    for todo in client.todos(since=since):
+        print(todo.date, todo.to_markdown())
 ```
 
-## Models — `src/teuxdeux/models.py`
+The client is a context manager — it logs in on enter and closes the HTTP session
+on exit.
 
-`@dataclass`es built via `from_api(dict)`, which keeps modelled fields and ignores the rest.
+## Models
 
-- **`Todo`**: `id, text, done, current_date, position, …` + `is_someday`, `date`,
-  `updated_at_dt`, `to_markdown()`. Undated (list) todos have `current_date = null`.
-- **`User`**: `id, email, display_name, timezone, confirmed`.
+Defined in [`src/teuxdeux/models.py`](src/teuxdeux/models.py) as `@dataclass`es. Each
+is built with `from_api(dict)`, which keeps the modelled fields and ignores the rest.
+
+| Model    | Key fields                                                        | Helpers                                          |
+| -------- | ----------------------------------------------------------------- | ------------------------------------------------ |
+| `Todo`   | `id`, `text`, `done`, `current_date`, `position`, …               | `is_someday`, `date`, `updated_at_dt`, `to_markdown()` |
+| `User`   | `id`, `email`, `display_name`, `timezone`, `confirmed`            | —                                                |
+
+Undated ("list") todos have `current_date = null`.
 
 ## Tests
 
 ```sh
-pytest          # offline model tests against tests/fixtures/*.json
-pytest -m live  # live login + fetch (needs TEUXDEUX_USERNAME/PASSWORD)
+pytest            # offline model tests against tests/fixtures/*.json
+pytest -m live    # live login + fetch (needs TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD)
 ```
+
+## License
+
+Unofficial, provided as-is. Use at your own risk.

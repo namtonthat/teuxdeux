@@ -1,50 +1,99 @@
 # TeuxDeux API reference
 
-Reverse-engineered (TeuxDeux has no official API). The **current v4 API** below is confirmed
-end-to-end from a live session (2026-06); `client.py` implements it. Legacy notes at the end.
+TeuxDeux ships no official API, so this is **reverse-engineered**. Everything under
+"Current API (v4)" below was confirmed end-to-end from a live session (June 2026) and
+is what [`src/teuxdeux/client.py`](src/teuxdeux/client.py) implements. Legacy notes
+follow at the end for historical context.
 
-## Auth — Flask cookie login → Bearer token
+---
 
-1. `GET /login` → HTML form with a hidden `csrf_token`; sets a signed Flask `session` cookie.
-2. `POST /login` (`application/x-www-form-urlencoded`): `username`, `password`, `csrf_token`,
-   plus `Origin`/`Referer` of `https://teuxdeux.com` (Flask-WTF rejects HTTPS POSTs without it).
-   Success → **302 `/home`**, setting auth cookies (`_txdxtxdx_token`, `refresh_token`,
-   `remember_token`, new `session`).
-3. **The v4 JSON API does *not* accept the cookie session** — cookie-only GETs return `401`.
-   Send the `_txdxtxdx_token` cookie value as `Authorization: Bearer <token>`. (404 = wrong
-   path; 401 = right path, missing/invalid Bearer.)
+## Authentication
 
-## Data API
+Auth is a two-step dance: a Flask cookie-session login, then a Bearer token for the
+JSON API.
 
-Base: `https://teuxdeux.com/api/v4`. Workspace-scoped data lives under
-`/api/v4/workspaces/{workspace_id}` (the default account is `123456`).
+1. **`GET /login`** — returns an HTML form containing a hidden `csrf_token` and sets a
+   signed Flask `session` cookie.
+2. **`POST /login`** (`application/x-www-form-urlencoded`) with:
+   - `username`, `password`, `csrf_token`
+   - `Origin` and `Referer` headers set to `https://teuxdeux.com`
+     (Flask-WTF rejects HTTPS form POSTs without a same-origin referer)
 
-Confirmed endpoints (all need the Bearer header):
+   On success the server responds **`302 → /home`** and sets the auth cookies:
+   `_txdxtxdx_token`, `refresh_token`, `remember_token`, and a fresh `session`.
+3. **Authorize JSON requests with the token.** The v4 JSON API does *not* accept the
+   cookie session — cookie-only requests return `401`. Take the `_txdxtxdx_token`
+   cookie value and send it as a header:
 
-| Method/path | Returns |
-|---|---|
-| `GET /api/v4/account` | `{"account": {...}}` — the authenticated user |
-| `GET /api/v4/workspaces` | `{"workspaces": [...]}` — id, name, list_sets, … |
-| `GET /api/v4/workspaces/{ws}` | `{"workspace", "calendar_todos", "recurring_todos"}` |
-| `GET /api/v4/workspaces/{ws}/todos?since=&until=` | `{"todos": [...]}` — dated todos |
-| `POST /api/v4/workspaces/{ws}/todos/{id}/state` | body `{"done": bool}` → `{"todo": {...}}` — toggle done |
-| `GET /api/v4/workspaces/{ws}/day-labels?since=&until=` | `{"day_labels": [...]}` |
+   ```http
+   Authorization: Bearer <_txdxtxdx_token>
+   ```
 
-`PATCH /todos/{id}` exists but rejects `{"done": ...}` (422 "Unknown field"); done-state is its
-own `/state` sub-resource. Mutations send `Origin`/`Referer` headers like the browser.
+   > Reading status codes: **`404`** = wrong path; **`401`** = right path, but a
+   > missing or invalid Bearer token.
 
-`since`/`until` are `YYYY-MM-DD` (inclusive).
+---
 
-## Models
+## Current API (v4)
 
-- **Todo** (`/workspaces/{ws}/todos`): `id`, `text`, `done`, `current_date` (`YYYY-MM-DD`,
-  null for undated list todos), `position`, `list_id`, `workspace_id`, `uuid`, `has_details`,
-  `recurring_todo_id`, `created_at`, `updated_at`. Timestamps are `%Y-%m-%dT%H:%M:%S%z`.
-- **User** (`/account`): `id`, `email`, `display_name`, `timezone`, `confirmed` (plus
-  `subscription`, `features`, `workspaces`, … which `from_api` ignores).
+**Base URL:** `https://teuxdeux.com/api/v4`
 
-## Legacy (defunct)
+Workspace-scoped data lives under `/api/v4/workspaces/{workspace_id}`. Discover your
+own workspace id from `GET /api/v4/workspaces`.
 
-The pre-rebuild API ([`badboy/teuxdeux`](https://github.com/badboy/teuxdeux), ~2011) used HTTP
-Basic auth on `/api/user.json` and `/api/list.json` with a `todo`/`do_on` todo shape (someday =
-`1989-12-DD`) — all now `404`. Superseded entirely by the v4 API above.
+All endpoints below require the `Authorization: Bearer` header.
+
+| Method   | Path                                                | Returns                                                    |
+| -------- | --------------------------------------------------- | ---------------------------------------------------------- |
+| `GET`    | `/account`                                          | `{ "account": {…} }` — the authenticated user              |
+| `GET`    | `/workspaces`                                       | `{ "workspaces": [...] }` — `id`, `name`, `list_sets`, …   |
+| `GET`    | `/workspaces/{ws}`                                  | `{ "workspace", "calendar_todos", "recurring_todos" }`     |
+| `GET`    | `/workspaces/{ws}/todos?since=&until=`              | `{ "todos": [...] }` — dated todos                         |
+| `POST`   | `/workspaces/{ws}/todos/{id}/state`                 | body `{ "done": bool }` → `{ "todo": {…} }` — toggle done  |
+| `GET`    | `/workspaces/{ws}/day-labels?since=&until=`         | `{ "day_labels": [...] }`                                  |
+
+**Notes**
+
+- `since` / `until` are `YYYY-MM-DD` and **inclusive**.
+- Toggling done is its own sub-resource: `PATCH /todos/{id}` exists but rejects
+  `{"done": …}` with `422 "Unknown field"`. Use `POST /todos/{id}/state` instead.
+- Mutating requests send the same `Origin` / `Referer` headers as the browser.
+
+---
+
+## Data models
+
+### Todo — `/workspaces/{ws}/todos`
+
+| Field                   | Notes                                            |
+| ----------------------- | ------------------------------------------------ |
+| `id`                    |                                                  |
+| `text`                  |                                                  |
+| `done`                  |                                                  |
+| `current_date`          | `YYYY-MM-DD`; `null` for undated ("list") todos  |
+| `position`              |                                                  |
+| `list_id`, `workspace_id`, `uuid` |                                        |
+| `has_details`, `recurring_todo_id` |                                       |
+| `created_at`, `updated_at` | timestamps in `%Y-%m-%dT%H:%M:%S%z`           |
+
+### User — `/account`
+
+| Field           | Notes                       |
+| --------------- | --------------------------- |
+| `id`            |                             |
+| `email`         |                             |
+| `display_name`  |                             |
+| `timezone`      |                             |
+| `confirmed`     |                             |
+
+Extra fields the server returns (`subscription`, `features`, `workspaces`, …) are
+ignored by `from_api`.
+
+---
+
+## Legacy API (defunct)
+
+The pre-rebuild API ([`badboy/teuxdeux`](https://github.com/badboy/teuxdeux), ~2011)
+used HTTP Basic auth against `/api/user.json` and `/api/list.json`, with a
+`todo` / `do_on` todo shape (someday items encoded as `1989-12-DD`). All of those
+endpoints now return `404` — they have been fully superseded by the v4 API above.
