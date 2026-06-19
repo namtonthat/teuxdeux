@@ -140,11 +140,10 @@ class TeuxDeuxClient:
         data = self._get_json(TODOS_PATH.format(ws=self._ws_required()), **params)
         return [Todo.from_api(t) for t in data.get("todos", [])]
 
-    def set_done(self, todo_id: int, done: bool = True) -> Todo:
-        """Mark a todo done/undone — POST /todos/{id}/state with {"done": bool}."""
+    def _post_json(self, path: str, body: dict):
+        """POST JSON with the same auth + same-origin headers the browser sends on mutations."""
         if not self._token:
-            raise TeuxDeuxError("not logged in — call login() first")
-        path = STATE_PATH.format(ws=self._ws_required(), id=todo_id)
+            raise TeuxDeuxError("not logged in — call login() (or use the client as a context manager)")
         headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {self._token}",
@@ -153,10 +152,34 @@ class TeuxDeuxClient:
             "Referer": f"{self._base}/home",
         }
         try:
-            r = self._http.post(path, json={"done": done}, headers=headers)
+            r = self._http.post(path, json=body, headers=headers)
             r.raise_for_status()
+            return r.json()
         except httpx.HTTPStatusError as e:
             raise TeuxDeuxError(f"{e.response.status_code} {e.response.reason_phrase} for {path}") from e
         except httpx.HTTPError as e:
             raise TeuxDeuxError(f"request failed for {path}: {e}") from e
-        return Todo.from_api(r.json()["todo"])
+
+    def set_done(self, todo_id: int, done: bool = True) -> Todo:
+        """Mark a todo done/undone — POST /todos/{id}/state with {"done": bool}."""
+        path = STATE_PATH.format(ws=self._ws_required(), id=todo_id)
+        return Todo.from_api(self._post_json(path, {"done": done})["todo"])
+
+    def create_todo(
+        self,
+        text: str,
+        *,
+        current_date: dt.date | str | None = None,
+        done: bool = False,
+    ) -> Todo:
+        """Create a todo — POST /todos with {text, done, current_date}. Returns the new Todo.
+
+        current_date is a date or "YYYY-MM-DD" (None creates an undated/list todo).
+        """
+        cd = current_date.isoformat() if isinstance(current_date, dt.date) else current_date
+        path = TODOS_PATH.format(ws=self._ws_required())
+        data = self._post_json(
+            path,
+            {"text": text, "done": done, "highlight_identifier": None, "current_date": cd},
+        )
+        return Todo.from_api(data.get("todo", data))

@@ -39,6 +39,10 @@ def main(argv: list[str] | None = None) -> None:
     done = sub.add_parser("set-done", help="mark a todo done (or undone) by id")
     done.add_argument("id", type=int, help="todo id")
     done.add_argument("--undone", action="store_true", help="mark not-done instead of done")
+    add = sub.add_parser("add", help="create a todo")
+    add.add_argument("text", help="todo text")
+    add.add_argument("--date", metavar="YYYY-MM-DD", help="calendar date (default: undated)")
+    add.add_argument("--done", action="store_true", help="create it already done")
     args = parser.parse_args(argv)
 
     since = args.__dict__.get("since")
@@ -54,6 +58,9 @@ def main(argv: list[str] | None = None) -> None:
                 print(json.dumps(dataclasses.asdict(client.user()), indent=2))
             elif args.cmd == "set-done":
                 t = client.set_done(args.id, done=not args.undone)
+                print(json.dumps(t.to_dict(), indent=2))
+            elif args.cmd == "add":
+                t = client.create_todo(args.text, current_date=args.date, done=args.done)
                 print(json.dumps(t.to_dict(), indent=2))
             else:
                 items = client.todos(since=since, until=until)
