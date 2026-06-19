@@ -20,8 +20,8 @@ class User(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     id: int
-    login: str
-    email: str
+    login: str | None = None  # legacy field; may be absent on the v3 /me shape
+    email: str | None = None
     time_zone: str | None = None
     utc_offset: int | None = None  # minutes east of UTC
 

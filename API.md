@@ -24,24 +24,45 @@ sets a `_barebones_session` cookie.
 ### User fields
 `id` int · `login` str · `email` str · `time_zone` str · `utc_offset` int (minutes).
 
-## Capturing the CURRENT API (to make fetching work)
+## Current API (v3) — reconnaissance (2026-06)
 
-The post-rebuild app is a SPA with its own (undocumented) endpoints. To find them:
+Probed from the live site without logging in:
 
-1. Log in at https://teuxdeux.com in a browser.
-2. Open DevTools → **Network**, filter to **Fetch/XHR**, reload.
-3. Find the request that returns your lists/todos (look for JSON with your task text).
-4. Right-click → **Copy → Copy as cURL**.
+- `GET /api/user.json` → **404** — legacy API is gone.
+- `GET /api/v3/*` (me, lists, todos, dashboard, …) → **400** for everything, i.e. a blanket
+  "unauthenticated/bad request" for the whole `/api/v3` namespace. So the API base is
+  **`/api/v3`**, but individual endpoint names can't be fingerprinted by status code.
+- `/login` is a **form POST** (`<form action="/login">`) with fields **`username`**,
+  **`password`**, **`csrf_token`**. The `csrf_token` (and a session cookie) come from
+  `GET /login` first.
 
-From that cURL, fill in:
+`client.py` implements this: GET `/login` → scrape `csrf_token` → POST `/login` → session
+cookie → `GET /api/v3/...` with `X-CSRF-Token`.
 
-- [ ] **Base URL / path** (likely `…/api/v…/`) → `DEFAULT_BASE_URL` + paths in `client.py`
-- [ ] **Auth** — cookie/bearer/CSRF instead of Basic? → update the `headers` in `client.py`
-- [ ] **Response shape** — field names/nesting → adjust `models.py` (use `Field(alias=...)` for renames)
-- [ ] **Date param** — what filters by date (if any) → `todos(since=...)`
+### Login is JS-hijacked
+The `<form action="/login" method="POST">` is a progressive-enhancement fallback: a direct
+POST to `/login` (even form-encoded) returns **404**, so the app intercepts the submit and
+POSTs to an API endpoint via fetch. POST-probing:
 
-Paste the cURL here when captured:
+| status | endpoint | read |
+|---|---|---|
+| 404 | `POST /login` | not the real target |
+| 405 | `POST /sessions` | route exists, wrong method |
+| 400 | `POST /api/v3/sessions` | **likely the real login** (needs proper JSON body) |
+| 400 | `POST /api/v3/login` / `/users/sign_in` | ambiguous (blanket /api/v3 400) |
+
+So `client.py`'s `login()` (POST `/login`) is **wrong** and needs the real endpoint.
+
+### Still unconfirmed (needs ONE authenticated capture)
+- [ ] **Login**: real endpoint (prob. `POST /api/v3/sessions`), body (JSON? `email`+`password`+csrf?), success signal.
+- [ ] **Data endpoint** (`LIST_PATH` in `client.py` is a guess: `/api/v3/dashboard`).
+- [ ] **Todo response shape** — likely renamed vs legacy (e.g. `text`/`completed`/`current_date`
+      not `todo`/`done`/`do_on`) → update `models.Todo` with `Field(alias=...)`.
+- [ ] **Auth header** on `/api/v3` — `X-CSRF-Token`, bearer, or cookie-only.
+
+To capture: log in at https://teuxdeux.com → DevTools → **Network** (Fetch/XHR) → reload →
+the request whose JSON contains your task text → **Copy as cURL**, then paste below:
 
 ```
-# (paste DevTools "Copy as cURL" output)
+# (paste DevTools "Copy as cURL" output here)
 ```

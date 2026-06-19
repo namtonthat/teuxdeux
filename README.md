@@ -1,33 +1,29 @@
 # teuxdeux
 
-An unofficial, typed TeuxDeux REST client — `httpx` + `pydantic`. Built to pull todos
-out of TeuxDeux (e.g. into an Obsidian/NotePlan vault), with clean data models as the
-reference point.
+Typed, unofficial **TeuxDeux** client — `httpx` + `pydantic`. Pulls your todos out of
+TeuxDeux (e.g. into an Obsidian/NotePlan vault) with clean data models as the reference point.
 
-> **Status — the live API needs capturing.** TeuxDeux has no official API. The endpoints
-> here come from the legacy client [`badboy/teuxdeux`](https://github.com/badboy/teuxdeux),
-> whose own README confirms they stopped working after TeuxDeux's rebuild. The models,
-> CLI, and plumbing are real; the **endpoints in `client.py` are placeholders**. To make
-> fetching work, capture the current request from the web app (DevTools → Network → the
-> JSON request that loads your lists → *Copy as cURL*) and update `BASE_URL`, the paths,
-> and the auth in `src/teuxdeux/client.py`. See [`API.md`](API.md).
+## Status
 
-## Install (dev)
+TeuxDeux has no official API. The endpoints in `client.py` are the **legacy** ones from
+[`badboy/teuxdeux`](https://github.com/badboy/teuxdeux), which no longer work after TeuxDeux's
+rebuild. The models, CLI, and tests are real and passing; the live fetch needs the current
+endpoints captured — see [`API.md`](API.md).
+
+## Install
 
 ```sh
-uv venv && source .venv/bin/activate
-uv pip install -e ".[dev]"
+uv venv && uv pip install -e ".[dev]"
 ```
 
-## Use
+## Usage
 
 ```sh
-export TEUXDEUX_EMAIL=you@example.com
-export TEUXDEUX_PASSWORD=...
+export TEUXDEUX_EMAIL=you@example.com TEUXDEUX_PASSWORD=...
 
-teuxdeux user                      # auth check
-teuxdeux todos --lookback 3        # todos from the last 3 days, as JSON
-teuxdeux todos --since 2026-06-16  # todos on/after a date, as JSON
+teuxdeux user                # auth check
+teuxdeux todos --lookback 3  # todos from the last 3 days → JSON
+teuxdeux todos --since 2026-06-16
 ```
 
 ```python
@@ -39,18 +35,17 @@ with TeuxDeuxClient(email, password) as c:
         print(t.date, t.to_markdown())
 ```
 
-## Data models (`src/teuxdeux/models.py`)
+## Data models — `src/teuxdeux/models.py`
 
-- **`Todo`** — `id, todo, done, do_on, position, user_id, updated_at`; helpers `is_someday`,
-  `date`, `updated_at_dt`, `to_markdown()`. Someday items use `do_on = 1989-12-DD`.
-- **`User`** — `id, login, email, time_zone, utc_offset`.
+- **`Todo`**: `id, todo, done, do_on, position, user_id, updated_at` + `is_someday`, `date`,
+  `to_markdown()`. Someday items use `do_on = 1989-12-DD`.
+- **`User`**: `id, login, email, time_zone, utc_offset`.
 
 ## Tests
 
 ```sh
-pytest            # validates the models against tests/fixtures/*.json
+pytest          # model tests — offline, against tests/fixtures/*.json
+teuxdeux user   # live auth check — needs working endpoints (see Status)
 ```
 
-## Credit
-
-Endpoint reference and JSON fixtures adapted from [`badboy/teuxdeux`](https://github.com/badboy/teuxdeux).
+Credit: endpoint reference and fixtures adapted from [`badboy/teuxdeux`](https://github.com/badboy/teuxdeux).
