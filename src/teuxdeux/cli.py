@@ -12,6 +12,8 @@ import json
 import os
 import sys
 
+from dotenv import load_dotenv
+
 from .client import TeuxDeuxClient, TeuxDeuxError
 
 
@@ -24,6 +26,7 @@ def _credentials() -> tuple[str, str]:
 
 
 def main(argv: list[str] | None = None) -> None:
+    load_dotenv()  # load .env if present; real env vars still take precedence
     parser = argparse.ArgumentParser(prog="teuxdeux", description="Unofficial TeuxDeux client")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("user", help="print the authenticated user (auth check)")

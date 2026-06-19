@@ -19,12 +19,14 @@ uv venv && uv pip install -e ".[dev]"
 ## Usage
 
 ```sh
-export TEUXDEUX_EMAIL=you@example.com TEUXDEUX_PASSWORD=...
+cp .env.example .env   # then fill in TEUXDEUX_EMAIL / PASSWORD / WORKSPACE_ID (gitignored)
 
 teuxdeux user                # auth check
 teuxdeux todos --lookback 3  # todos from the last 3 days → JSON
 teuxdeux todos --since 2026-06-16
 ```
+
+Creds load from `.env` (via python-dotenv) or real env vars (env vars win).
 
 ```python
 import datetime as dt
