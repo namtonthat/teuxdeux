@@ -1,4 +1,4 @@
-"""Command-line interface: `teuxdeux user` / `todos [--since|--lookback]` / `set-done <id>`.
+"""Command-line interface: `teuxdeux user` / `todos [--since|--until|--lookback]` / `set-done <id>`.
 
 Credentials come from env: TEUXDEUX_USERNAME and TEUXDEUX_PASSWORD.
 `todos` prints a JSON array; `set-done` flips a todo's done state (the vault sync uses both).
@@ -33,18 +33,20 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("user", help="print the authenticated user (auth check)")
     todos = sub.add_parser("todos", help="print todos as a JSON array")
     todos.add_argument("--since", metavar="YYYY-MM-DD", help="only todos on/after this date")
+    todos.add_argument("--until", metavar="YYYY-MM-DD",
+                       help="only todos on/before this date (may be in the future)")
     todos.add_argument("--lookback", type=int, metavar="N",
-                       help="shortcut for --since N days ago")
+                       help="shortcut for --since N days ago (until defaults to today)")
     done = sub.add_parser("set-done", help="mark a todo done (or undone) by id")
     done.add_argument("id", type=int, help="todo id")
     done.add_argument("--undone", action="store_true", help="mark not-done instead of done")
     args = parser.parse_args(argv)
 
     since = args.__dict__.get("since")
-    until = None
+    until = args.__dict__.get("until")
     if args.__dict__.get("lookback") is not None:
         since = (dt.date.today() - dt.timedelta(days=args.lookback)).isoformat()
-        until = dt.date.today().isoformat()
+        until = until or dt.date.today().isoformat()
 
     username, password = _credentials()
     try:
