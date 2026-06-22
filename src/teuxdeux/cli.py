@@ -1,4 +1,4 @@
-"""CLI: `teuxdeux user | todos [--since|--until|--lookback] | set-done <id>`.
+"""CLI: `teuxdeux user | todos [--since|--until|--lookback] | set-done <id> | add | edit | delete`.
 
 Credentials from env (TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD); commands print JSON.
 """
@@ -43,6 +43,11 @@ def main(argv: list[str] | None = None) -> None:
     add.add_argument("text", help="todo text")
     add.add_argument("--date", metavar="YYYY-MM-DD", help="calendar date (default: undated)")
     add.add_argument("--done", action="store_true", help="create it already done")
+    edit = sub.add_parser("edit", help="edit a todo's text by id")
+    edit.add_argument("id", type=int, help="todo id")
+    edit.add_argument("text", help="new todo text")
+    delete = sub.add_parser("delete", help="delete a todo by id")
+    delete.add_argument("id", type=int, help="todo id")
     args = parser.parse_args(argv)
 
     since = args.__dict__.get("since")
@@ -62,6 +67,12 @@ def main(argv: list[str] | None = None) -> None:
             elif args.cmd == "add":
                 t = client.create_todo(args.text, current_date=args.date, done=args.done)
                 print(json.dumps(t.to_dict(), indent=2))
+            elif args.cmd == "edit":
+                t = client.update_todo(args.id, args.text)
+                print(json.dumps(t.to_dict(), indent=2))
+            elif args.cmd == "delete":
+                client.delete_todo(args.id)
+                print(json.dumps({"deleted": args.id}, indent=2))
             else:
                 items = client.todos(since=since, until=until)
                 print(json.dumps([t.to_dict() for t in items], indent=2))

@@ -68,7 +68,10 @@ cp .env.example .env
 teuxdeux user                 # auth check → account JSON
 teuxdeux todos --lookback 3   # last 3 days → JSON array
 teuxdeux todos --since 2026-06-16 --until 2026-06-20   # explicit window (future dates OK)
+teuxdeux add "buy milk" --date 2026-06-22   # create (--done to start ticked, undated if no --date)
 teuxdeux set-done 12345       # mark done (--undone to reverse)
+teuxdeux edit 12345 "buy oat milk"   # edit a todo's text
+teuxdeux delete 12345         # delete a todo
 ```
 
 `--lookback N` is shorthand for `--since N-days-ago --until today`.

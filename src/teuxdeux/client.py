@@ -17,6 +17,7 @@ from .models import Todo, User
 BASE_URL = "https://teuxdeux.com"
 # {ws} = numeric workspace id (find yours via workspaces() or set TEUXDEUX_WORKSPACE_ID).
 TODOS_PATH = "/api/v4/workspaces/{ws}/todos"  # ?since=&until= → {"todos": [...]}
+TODO_PATH = "/api/v4/workspaces/{ws}/todos/{id}"  # PATCH {"text": str} → {"todo": {...}}; DELETE → 204
 STATE_PATH = "/api/v4/workspaces/{ws}/todos/{id}/state"  # POST {"done": bool} → {"todo": {...}}
 WORKSPACES_PATH = "/api/v4/workspaces"  # → {"workspaces": [...]}
 ACCOUNT_PATH = "/api/v4/account"  # → {"account": {...}}
@@ -140,21 +141,48 @@ class TeuxDeuxClient:
         data = self._get_json(TODOS_PATH.format(ws=self._ws_required()), **params)
         return [Todo.from_api(t) for t in data.get("todos", [])]
 
-    def _post_json(self, path: str, body: dict):
-        """POST JSON with the same auth + same-origin headers the browser sends on mutations."""
+    def _mutate_headers(self) -> dict:
+        """Auth + same-origin headers the browser sends on every mutation (POST/PATCH/DELETE)."""
         if not self._token:
             raise TeuxDeuxError("not logged in — call login() (or use the client as a context manager)")
-        headers = {
+        return {
             "Accept": "application/json",
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
             "Origin": self._base,
             "Referer": f"{self._base}/home",
         }
+
+    def _post_json(self, path: str, body: dict):
+        """POST JSON with the same auth + same-origin headers the browser sends on mutations."""
+        headers = self._mutate_headers()
         try:
             r = self._http.post(path, json=body, headers=headers)
             r.raise_for_status()
             return r.json()
+        except httpx.HTTPStatusError as e:
+            raise TeuxDeuxError(f"{e.response.status_code} {e.response.reason_phrase} for {path}") from e
+        except httpx.HTTPError as e:
+            raise TeuxDeuxError(f"request failed for {path}: {e}") from e
+
+    def _patch_json(self, path: str, body: dict):
+        """PATCH JSON (edit a todo's fields). Returns the decoded response."""
+        headers = self._mutate_headers()
+        try:
+            r = self._http.patch(path, json=body, headers=headers)
+            r.raise_for_status()
+            return r.json()
+        except httpx.HTTPStatusError as e:
+            raise TeuxDeuxError(f"{e.response.status_code} {e.response.reason_phrase} for {path}") from e
+        except httpx.HTTPError as e:
+            raise TeuxDeuxError(f"request failed for {path}: {e}") from e
+
+    def _delete(self, path: str) -> None:
+        """DELETE a resource. The server replies 204 No Content, so there's nothing to parse."""
+        headers = self._mutate_headers()
+        try:
+            r = self._http.request("DELETE", path, headers=headers)
+            r.raise_for_status()
         except httpx.HTTPStatusError as e:
             raise TeuxDeuxError(f"{e.response.status_code} {e.response.reason_phrase} for {path}") from e
         except httpx.HTTPError as e:
@@ -183,3 +211,16 @@ class TeuxDeuxClient:
             {"text": text, "done": done, "highlight_identifier": None, "current_date": cd},
         )
         return Todo.from_api(data.get("todo", data))
+
+    def update_todo(self, todo_id: int, text: str) -> Todo:
+        """Edit a todo's text — PATCH /todos/{id} with {"text": …}. Returns the updated Todo.
+
+        (Toggling done is a separate sub-resource; use set_done. Reverse-engineered June 2026.)
+        """
+        path = TODO_PATH.format(ws=self._ws_required(), id=todo_id)
+        data = self._patch_json(path, {"text": text})
+        return Todo.from_api(data.get("todo", data))
+
+    def delete_todo(self, todo_id: int) -> None:
+        """Delete a todo — DELETE /todos/{id} (server returns 204). Reverse-engineered June 2026."""
+        self._delete(TODO_PATH.format(ws=self._ws_required(), id=todo_id))

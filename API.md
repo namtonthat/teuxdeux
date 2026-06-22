@@ -49,15 +49,20 @@ All endpoints below require the `Authorization: Bearer` header.
 | `GET`    | `/workspaces`                                       | `{ "workspaces": [...] }` — `id`, `name`, `list_sets`, …   |
 | `GET`    | `/workspaces/{ws}`                                  | `{ "workspace", "calendar_todos", "recurring_todos" }`     |
 | `GET`    | `/workspaces/{ws}/todos?since=&until=`              | `{ "todos": [...] }` — dated todos                         |
+| `POST`   | `/workspaces/{ws}/todos`                            | body `{ text, done, current_date, highlight_identifier }` → `{ "todo": {…} }` — create |
 | `POST`   | `/workspaces/{ws}/todos/{id}/state`                 | body `{ "done": bool }` → `{ "todo": {…} }` — toggle done  |
+| `PATCH`  | `/workspaces/{ws}/todos/{id}`                       | body `{ "text": str }` → `{ "todo": {…} }` — edit text     |
+| `DELETE` | `/workspaces/{ws}/todos/{id}`                       | → `204 No Content` — delete the todo                       |
 | `GET`    | `/workspaces/{ws}/day-labels?since=&until=`         | `{ "day_labels": [...] }`                                  |
 
 **Notes**
 
 - `since` / `until` are `YYYY-MM-DD` and **inclusive**, and may be **future** dates
   (e.g. fetching tomorrow's planned todos).
-- Toggling done is its own sub-resource: `PATCH /todos/{id}` exists but rejects
-  `{"done": …}` with `422 "Unknown field"`. Use `POST /todos/{id}/state` instead.
+- Toggling done is its own sub-resource: `PATCH /todos/{id}` accepts `{"text": …}` (edit
+  text, confirmed June 2026) but rejects `{"done": …}` with `422 "Unknown field"`. Use
+  `POST /todos/{id}/state` to toggle done.
+- `DELETE /todos/{id}` returns `204 No Content` with an empty body (confirmed June 2026).
 - Mutating requests send the same `Origin` / `Referer` headers as the browser.
 
 ---
