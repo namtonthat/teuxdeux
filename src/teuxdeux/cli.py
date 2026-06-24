@@ -1,4 +1,4 @@
-"""CLI: `teuxdeux user | todos [--since|--until|--lookback] | set-done <id> | add | edit | delete`.
+"""CLI: `teuxdeux user | todos [--since|--until|--lookback] | set-done | add | edit | delete | apply`.
 
 Credentials from env (TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD); commands print JSON.
 """
@@ -25,6 +25,39 @@ def _credentials() -> tuple[str, str]:
     return username, password
 
 
+def apply_ops(client, ops: list[dict]) -> list[dict]:
+    """Run a batch of mutations against one logged-in client, in order, returning one result
+    per op. A failing op is reported as {"ok": False, "error": …} and does NOT abort the rest,
+    so a single bad delete can't strand the creates that follow it. Op shapes:
+
+      {"op": "add", "text": str, "date": "YYYY-MM-DD"|null, "done": bool}
+      {"op": "set-done", "id": int, "done": bool}
+      {"op": "edit", "id": int, "text": str}
+      {"op": "delete", "id": int}
+    """
+    results: list[dict] = []
+    for op in ops:
+        kind = op.get("op")
+        try:
+            if kind == "add":
+                t = client.create_todo(op["text"], current_date=op.get("date"), done=op.get("done", False))
+                results.append({"op": "add", "ok": True, "todo": t.to_dict()})
+            elif kind == "set-done":
+                t = client.set_done(op["id"], done=op.get("done", True))
+                results.append({"op": "set-done", "ok": True, "todo": t.to_dict()})
+            elif kind == "edit":
+                t = client.update_todo(op["id"], op["text"])
+                results.append({"op": "edit", "ok": True, "todo": t.to_dict()})
+            elif kind == "delete":
+                client.delete_todo(op["id"])
+                results.append({"op": "delete", "ok": True, "id": op["id"]})
+            else:
+                results.append({"op": kind, "ok": False, "error": f"unknown op {kind!r}"})
+        except (TeuxDeuxError, KeyError) as e:
+            results.append({"op": kind, "ok": False, "error": str(e)})
+    return results
+
+
 def main(argv: list[str] | None = None) -> None:
     load_dotenv()  # load .env if present; real env vars still take precedence
     parser = argparse.ArgumentParser(prog="teuxdeux", description="Unofficial TeuxDeux client")
@@ -48,6 +81,7 @@ def main(argv: list[str] | None = None) -> None:
     edit.add_argument("text", help="new todo text")
     delete = sub.add_parser("delete", help="delete a todo by id")
     delete.add_argument("id", type=int, help="todo id")
+    sub.add_parser("apply", help="run a JSON array of ops (from stdin) in one session")
     args = parser.parse_args(argv)
 
     since = args.__dict__.get("since")
@@ -73,6 +107,9 @@ def main(argv: list[str] | None = None) -> None:
             elif args.cmd == "delete":
                 client.delete_todo(args.id)
                 print(json.dumps({"deleted": args.id}, indent=2))
+            elif args.cmd == "apply":
+                ops = json.loads(sys.stdin.read() or "[]")
+                print(json.dumps(apply_ops(client, ops), indent=2))
             else:
                 items = client.todos(since=since, until=until)
                 print(json.dumps([t.to_dict() for t in items], indent=2))

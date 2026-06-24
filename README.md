@@ -72,9 +72,18 @@ teuxdeux add "buy milk" --date 2026-06-22   # create (--done to start ticked, un
 teuxdeux set-done 12345       # mark done (--undone to reverse)
 teuxdeux edit 12345 "buy oat milk"   # edit a todo's text
 teuxdeux delete 12345         # delete a todo
+echo '[{"op":"add","text":"x","date":"2026-06-25"},{"op":"delete","id":1}]' | teuxdeux apply
 ```
 
 `--lookback N` is shorthand for `--since N-days-ago --until today`.
+
+`apply` runs a JSON array of mutations (`add` / `set-done` / `edit` / `delete`) from stdin in
+**one** session — handy for syncs that would otherwise spawn a CLI process per change. Each op
+returns `{"op", "ok", …}`; a failed op is reported but does not abort the rest.
+
+**Session caching:** login costs ~2.5s, so the Bearer token is cached (owner-only) at
+`$XDG_CACHE_HOME/teuxdeux/token.json` (override with `TEUXDEUX_TOKEN_CACHE`) and reused across
+invocations; an expired token is detected on a `401` and a fresh login happens automatically.
 
 ### Python
 

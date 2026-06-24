@@ -16,6 +16,80 @@ def _client(handler):
     return c
 
 
+def _login_mock(token="NEWTOKEN", on_api=None, log=None):
+    """A MockTransport handler that fakes the /login → /home cookie dance, then delegates
+    every API request to on_api. Appends 'GET /login' / 'POST /login' to log when given."""
+    def handler(req):
+        path = req.url.path
+        if path == "/login" and req.method == "GET":
+            if log is not None:
+                log.append("GET /login")
+            return httpx.Response(200, html='<input name="csrf_token" value="abc">')
+        if path == "/login" and req.method == "POST":
+            if log is not None:
+                log.append("POST /login")
+            return httpx.Response(302, headers={"location": "/home",
+                                                "set-cookie": f"_txdxtxdx_token={token}; Path=/"})
+        if path == "/home":
+            return httpx.Response(200, text="home")
+        return on_api(req)
+    return handler
+
+
+def _cached_client(cache, handler):
+    c = TeuxDeuxClient("u", "p", workspace_id=123456, cache_path=str(cache))
+    # follow_redirects mirrors the real client so the login 302 → /home dance works.
+    c._http = httpx.Client(base_url="https://teuxdeux.com", follow_redirects=True,
+                           transport=httpx.MockTransport(handler))
+    return c
+
+
+def test_cached_token_skips_login(tmp_path):
+    cache = tmp_path / "token.json"
+    cache.write_text(json.dumps({"u": "CACHED"}))
+    log = []
+    seen = {}
+
+    def on_api(req):
+        seen["auth"] = req.headers.get("authorization")
+        return httpx.Response(200, json={"todos": []})
+
+    c = _cached_client(cache, _login_mock(on_api=on_api, log=log))
+    c.__enter__()      # should adopt the cached token, no network
+    c.todos()
+    assert seen["auth"] == "Bearer CACHED"
+    assert log == []   # never hit /login
+
+
+def test_login_writes_token_to_cache(tmp_path):
+    cache = tmp_path / "token.json"
+    c = _cached_client(cache, _login_mock(token="FRESH", on_api=lambda r: httpx.Response(200, json={})))
+    c.login()
+    assert json.loads(cache.read_text())["u"] == "FRESH"
+    assert oct(cache.stat().st_mode)[-3:] == "600"   # not world/group readable
+
+
+def test_relogin_and_retry_on_401(tmp_path):
+    cache = tmp_path / "token.json"
+    cache.write_text(json.dumps({"u": "STALE"}))
+    log = []
+    calls = {"api": 0}
+
+    def on_api(req):
+        calls["api"] += 1
+        if req.headers.get("authorization") == "Bearer STALE":
+            return httpx.Response(401, json={"error": "unauthorized"})
+        return httpx.Response(200, json={"account": {"id": 7}})
+
+    c = _cached_client(cache, _login_mock(token="GOOD", on_api=on_api, log=log))
+    c.__enter__()                       # adopts STALE from cache
+    user = c.user()
+    assert user.id == 7
+    assert "POST /login" in log         # re-logged in on the 401
+    assert calls["api"] == 2            # first 401, then the retry
+    assert json.loads(cache.read_text())["u"] == "GOOD"  # cache refreshed
+
+
 def test_create_todo_request_and_parse():
     seen = {}
 
