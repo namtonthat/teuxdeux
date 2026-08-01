@@ -1,6 +1,7 @@
 # TeuxDeux API reference
 
-TeuxDeux ships no official API, so this is **reverse-engineered**. Everything under
+TeuxDeux ships no official API; this documents the **v4 API the web app itself uses**,
+as observed from a normal logged-in browser session. Everything under
 "Current API (v4)" below was confirmed end-to-end from a live session (June 2026) and
 is what [`src/teuxdeux/client.py`](src/teuxdeux/client.py) implements. Legacy notes
 follow at the end for historical context.
