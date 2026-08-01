@@ -7,14 +7,12 @@ name = "teuxdeux"
 version = "0.1.0"
 description = "Unofficial TeuxDeux REST client (httpx + dataclasses)"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Nam Tonthat" }]
 keywords = ["teuxdeux", "todo", "cli", "api-client"]
 classifiers = [
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]

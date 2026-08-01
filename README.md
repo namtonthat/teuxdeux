@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/namtonthat/teuxdeux/actions/workflows/ci.yml/badge.svg)](https://github.com/namtonthat/teuxdeux/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python versions](https://img.shields.io/badge/python-3.11%E2%80%933.14-blue)](pyproject.toml)
+[![Python versions](https://img.shields.io/badge/python-3.13%20%7C%203.14-blue)](pyproject.toml)
 
 A small, typed, **unofficial** Python client + CLI for [TeuxDeux](https://teuxdeux.com).
 Built on `httpx` and stdlib `dataclasses` — no heavy dependencies. It speaks the same
@@ -43,7 +43,7 @@ graph LR
 
 ## Getting started
 
-Requires **Python 3.11+** and a TeuxDeux account.
+Requires **Python 3.13+** and a TeuxDeux account.
 
 ### Installation
 
