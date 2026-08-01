@@ -1,5 +1,8 @@
 # teuxdeux
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python versions](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
+
 A small, typed, **unofficial** Python client + CLI for [TeuxDeux](https://teuxdeux.com).
 Built on `httpx` and stdlib `dataclasses` — no heavy dependencies. Reverse-engineered
 against the current **v4** API (`login → Bearer token → todos`); see [`API.md`](API.md).
@@ -8,10 +11,19 @@ against the current **v4** API (`login → Bearer token → todos`); see [`API.m
 > TeuxDeux has no official API. This project is not affiliated with TeuxDeux, and the
 > API it targets may change without warning.
 
+- [Why](#why)
+- [Getting started](#getting-started)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+- [Usage](#usage)
+- [Models](#models)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Why
 
-TeuxDeux has no official API, export, or automation hook. This library opens that box —
-typed, read/write access to your todos so they can flow anywhere.
+TeuxDeux has no official API or automation hook (just a manual backup export). This
+library opens that box — typed, read/write access to your todos so they can flow anywhere.
 
 ```mermaid
 graph LR
@@ -28,37 +40,55 @@ graph LR
 > It began as the engine behind an Obsidian/NotePlan daily-note sync, but that lives in a
 > separate repo. **This package is just the standalone client and CLI.**
 
-## Requirements
+## Getting started
 
-- Python 3.11+ and a TeuxDeux account
+Requires **Python 3.11+** and a TeuxDeux account.
 
-## Quick start
+### Installation
+
+Install the CLI as a standalone tool with [uv](https://docs.astral.sh/uv/) (recommended):
 
 ```sh
-./scripts/setup.sh        # venv + install + scaffold .env
+uv tool install git+https://github.com/namtonthat/teuxdeux
 ```
 
-Fill in your credentials in `.env`:
+Or add it to a project as a library:
+
+```sh
+# with uv
+uv add git+https://github.com/namtonthat/teuxdeux
+
+# with pip
+pip install git+https://github.com/namtonthat/teuxdeux
+```
+
+Or set up from source for development:
+
+```sh
+git clone https://github.com/namtonthat/teuxdeux && cd teuxdeux
+./scripts/setup.sh              # venv + editable install + scaffold .env
+source .venv/bin/activate
+```
+
+### Configuration
+
+Credentials load from a `.env` in the directory you run from (or any parent), or from
+real environment variables — env vars win:
 
 ```ini
 TEUXDEUX_USERNAME=you@example.com
 TEUXDEUX_PASSWORD=your-password
-TEUXDEUX_WORKSPACE_ID=123456    # optional — find it with client.workspaces()
+TEUXDEUX_WORKSPACE_ID=123456    # optional — find it with `teuxdeux workspaces`
 ```
-
-Credentials load from `.env` or real environment variables (env vars win).
 
 > [!WARNING]
 > `.env` is gitignored — never commit your credentials.
 
-<details>
-<summary>Manual install (without the script)</summary>
+Check it works:
 
 ```sh
-uv venv && uv pip install -e ".[dev]"
-cp .env.example .env
+teuxdeux user    # auth check → your account JSON
 ```
-</details>
 
 ## Usage
 
@@ -66,6 +96,7 @@ cp .env.example .env
 
 ```sh
 teuxdeux user                 # auth check → account JSON
+teuxdeux workspaces           # list workspaces → find your workspace id
 teuxdeux todos --lookback 3   # last 3 days → JSON array
 teuxdeux todos --since 2026-06-16 --until 2026-06-20   # explicit window (future dates OK)
 teuxdeux add "buy milk" --date 2026-06-22   # create (--done to start ticked, undated if no --date)
@@ -89,7 +120,12 @@ invocations; an expired token is detected on a `401` and a fresh login happens a
 
 ```python
 import datetime as dt
+import os
+
 from teuxdeux import TeuxDeuxClient
+
+username = os.environ["TEUXDEUX_USERNAME"]
+password = os.environ["TEUXDEUX_PASSWORD"]
 
 with TeuxDeuxClient(username, password) as client:   # logs in on enter, closes on exit
     since = dt.date.today() - dt.timedelta(days=3)
@@ -109,13 +145,20 @@ Dataclasses in [`src/teuxdeux/models.py`](src/teuxdeux/models.py), built via
 
 Undated ("list") todos have `current_date = null`.
 
-## Tests
+## Contributing
+
+Issues and PRs welcome. To get a dev environment:
 
 ```sh
-pytest            # offline model tests (tests/fixtures/*.json)
-pytest -m live    # live login + fetch (needs real credentials)
+./scripts/setup.sh          # or: uv venv && uv pip install -e ".[dev]"
+source .venv/bin/activate
+pytest                      # offline model tests (tests/fixtures/*.json)
+pytest -m live              # live login + fetch (needs real credentials in .env)
 ```
 
 ## License
 
-Unofficial, provided as-is. Use at your own risk.
+This repository is licensed under the [MIT License](LICENSE).
+
+It is an unofficial client, provided as-is — not affiliated with or endorsed by TeuxDeux.
+Use at your own risk.

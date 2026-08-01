@@ -1,4 +1,4 @@
-"""CLI: `teuxdeux user | todos [--since|--until|--lookback] | set-done | add | edit | delete | apply`.
+"""CLI: `teuxdeux user | workspaces | todos [--since|--until|--lookback] | set-done | add | edit | delete | apply`.
 
 Credentials from env (TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD); commands print JSON.
 """
@@ -12,7 +12,7 @@ import json
 import os
 import sys
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from .client import TeuxDeuxClient, TeuxDeuxError
 
@@ -59,10 +59,13 @@ def apply_ops(client, ops: list[dict]) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    load_dotenv()  # load .env if present; real env vars still take precedence
+    # usecwd: search from the caller's directory, not this file's — a tool-installed CLI
+    # lives in site-packages, where the default upward search would never find a .env.
+    load_dotenv(find_dotenv(usecwd=True))  # real env vars still take precedence
     parser = argparse.ArgumentParser(prog="teuxdeux", description="Unofficial TeuxDeux client")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("user", help="print the authenticated user (auth check)")
+    sub.add_parser("workspaces", help="list workspaces (find your workspace id)")
     todos = sub.add_parser("todos", help="print todos as a JSON array")
     todos.add_argument("--since", metavar="YYYY-MM-DD", help="only todos on/after this date")
     todos.add_argument("--until", metavar="YYYY-MM-DD",
@@ -95,6 +98,8 @@ def main(argv: list[str] | None = None) -> None:
         with TeuxDeuxClient(username, password) as client:
             if args.cmd == "user":
                 print(json.dumps(dataclasses.asdict(client.user()), indent=2))
+            elif args.cmd == "workspaces":
+                print(json.dumps(client.workspaces(), indent=2))
             elif args.cmd == "set-done":
                 t = client.set_done(args.id, done=not args.undone)
                 print(json.dumps(t.to_dict(), indent=2))

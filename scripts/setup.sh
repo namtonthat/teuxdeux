@@ -18,8 +18,12 @@ warn() { printf '\033[1;33m!\033[0m  %s\n' "$1"; }
 
 # --- 1 & 2: environment + install ------------------------------------------
 if command -v uv >/dev/null 2>&1; then
-  info "Creating virtual environment with uv"
-  uv venv
+  if [ -d ".venv" ]; then
+    warn ".venv already exists — leaving it as-is"
+  else
+    info "Creating virtual environment with uv"
+    uv venv
+  fi
   info "Installing teuxdeux (editable, with dev extras)"
   uv pip install -e ".[dev]"
 else
