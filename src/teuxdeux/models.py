@@ -3,10 +3,10 @@
 `from_api` builds each model from an API dict, keeping modelled fields and ignoring the rest.
 """
 
-from __future__ import annotations
-
 import dataclasses as dc
 import datetime as dt
+from collections.abc import Mapping
+from typing import Any, Self
 
 # TeuxDeux's API timestamps look like "2026-05-27T08:48:39+0000".
 _TS = "%Y-%m-%dT%H:%M:%S%z"
@@ -24,9 +24,9 @@ def _parse_ts(s: str | None) -> dt.datetime | None:
             return None
 
 
-def _from_api(cls, data: dict):
+def _from_api[T](cls: type[T], data: Mapping[str, Any]) -> T:
     """Build a dataclass from an API dict, ignoring unknown keys."""
-    known = {f.name for f in dc.fields(cls)}
+    known = {f.name for f in dc.fields(cls)}  # type: ignore[arg-type]  # only called with dataclasses
     return cls(**{k: v for k, v in data.items() if k in known})
 
 
@@ -41,8 +41,11 @@ class User:
     confirmed: bool = False
 
     @classmethod
-    def from_api(cls, data: dict) -> "User":
+    def from_api(cls, data: Mapping[str, Any]) -> Self:
         return _from_api(cls, data)
+
+    def to_dict(self) -> dict[str, Any]:
+        return dc.asdict(self)
 
 
 @dc.dataclass(slots=True)
@@ -63,7 +66,7 @@ class Todo:
     updated_at: str | None = None
 
     @classmethod
-    def from_api(cls, data: dict) -> "Todo":
+    def from_api(cls, data: Mapping[str, Any]) -> Self:
         return _from_api(cls, data)
 
     @property
@@ -89,5 +92,5 @@ class Todo:
         """NotePlan/Obsidian checkbox line, e.g. '* [x] write specs'."""
         return f"* [{'x' if self.done else ' '}] {self.text.strip()}"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return dc.asdict(self)

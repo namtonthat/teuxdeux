@@ -4,13 +4,13 @@ Login is a Flask cookie session that yields a `_txdxtxdx_token`; the JSON API wa
 an `Authorization: Bearer` token (cookies alone get a 401). See API.md.
 """
 
-from __future__ import annotations
-
 import datetime as dt
 import json
 import os
 import re
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any, Self
 
 import httpx
 
@@ -74,7 +74,7 @@ class TeuxDeuxClient:
         )
 
     # ── session ───────────────────────────────────────────────────────────
-    def login(self) -> "TeuxDeuxClient":
+    def login(self) -> Self:
         page = self._http.get("/login")
         page.raise_for_status()
         m = _CSRF_RE.search(page.text) or _CSRF_RE_ALT.search(page.text)
@@ -100,7 +100,7 @@ class TeuxDeuxClient:
         self._store_token(self._token)
         return self
 
-    def ensure_session(self) -> "TeuxDeuxClient":
+    def ensure_session(self) -> Self:
         """Make the client usable with as few logins as possible: keep the in-memory token,
         else adopt a cached one (unverified — a stale token is caught by the 401 retry in
         _send), else perform a full login."""
@@ -113,17 +113,19 @@ class TeuxDeuxClient:
         return self.login()
 
     # ── token cache ───────────────────────────────────────────────────────
-    def _read_cache(self) -> dict:
+    def _read_cache(self) -> dict[str, str]:
         try:
             data = json.loads(self._cache_path.read_text())
-            return data if isinstance(data, dict) else {}
+            if isinstance(data, dict):
+                return {str(k): str(v) for k, v in data.items()}
+            return {}
         except (FileNotFoundError, ValueError, OSError):
             return {}
 
     def _cached_token(self) -> str | None:
         return self._read_cache().get(self._username)
 
-    def _write_cache(self, data: dict) -> None:
+    def _write_cache(self, data: dict[str, str]) -> None:
         if not self._use_cache:
             return
         try:
@@ -143,7 +145,7 @@ class TeuxDeuxClient:
         if data.pop(self._username, None) is not None:
             self._write_cache(data)
 
-    def __enter__(self) -> "TeuxDeuxClient":
+    def __enter__(self) -> Self:
         return self.ensure_session()
 
     def __exit__(self, *_exc: object) -> None:
@@ -161,13 +163,13 @@ class TeuxDeuxClient:
             )
         return self._ws
 
-    def _send(self, method: str, path: str, *, params=None, json_body=None,
+    def _send(self, method: str, path: str, *, params: Mapping[str, str] | None = None,
+              json_body: Mapping[str, Any] | None = None,
               mutate: bool = False) -> httpx.Response:
         """One authenticated request with a one-shot relogin: a cached/expired token that
         yields 401 is dropped, re-logged-in fresh, and the request retried once. Mutations
         add the same-origin Content-Type/Origin/Referer headers the browser sends."""
         self.ensure_session()
-        resp = None
         for attempt in (0, 1):
             headers = {"Accept": "application/json", "Authorization": f"Bearer {self._token}"}
             if mutate:
@@ -180,10 +182,11 @@ class TeuxDeuxClient:
                 self.login()
                 continue
             return resp
-        return resp
+        raise AssertionError("unreachable — the second attempt always returns")
 
-    def _request_json(self, method: str, path: str, *, params=None, json_body=None,
-                      mutate: bool = False, parse: bool = True):
+    def _request_json(self, method: str, path: str, *, params: Mapping[str, str] | None = None,
+                      json_body: Mapping[str, Any] | None = None,
+                      mutate: bool = False, parse: bool = True) -> Any:
         try:
             r = self._send(method, path, params=params, json_body=json_body, mutate=mutate)
             r.raise_for_status()
@@ -193,7 +196,7 @@ class TeuxDeuxClient:
         except httpx.HTTPError as e:
             raise TeuxDeuxError(f"request failed for {path}: {e}") from e
 
-    def _get_json(self, path: str, **params: object):
+    def _get_json(self, path: str, **params: str) -> Any:
         return self._request_json("GET", path, params=params or None)
 
     # ── endpoints ─────────────────────────────────────────────────────────
@@ -201,7 +204,7 @@ class TeuxDeuxClient:
         """The authenticated account."""
         return User.from_api(self._get_json(ACCOUNT_PATH)["account"])
 
-    def workspaces(self) -> list[dict]:
+    def workspaces(self) -> list[dict[str, Any]]:
         """Raw workspace records (id, name, list_sets, …) — use to find a workspace id."""
         return self._get_json(WORKSPACES_PATH).get("workspaces", [])
 
@@ -211,10 +214,10 @@ class TeuxDeuxClient:
         until: dt.date | str | None = None,
     ) -> list[Todo]:
         """Dated todos in [since, until] (YYYY-MM-DD)."""
-        def iso(d):
+        def iso(d: dt.date | str) -> str:
             return d.isoformat() if isinstance(d, dt.date) else d
 
-        params: dict[str, object] = {}
+        params: dict[str, str] = {}
         if since is not None:
             params["since"] = iso(since)
         if until is not None:
@@ -223,11 +226,11 @@ class TeuxDeuxClient:
         data = self._get_json(TODOS_PATH.format(ws=self._ws_required()), **params)
         return [Todo.from_api(t) for t in data.get("todos", [])]
 
-    def _post_json(self, path: str, body: dict):
+    def _post_json(self, path: str, body: Mapping[str, Any]) -> Any:
         """POST JSON with the same auth + same-origin headers the browser sends on mutations."""
         return self._request_json("POST", path, json_body=body, mutate=True)
 
-    def _patch_json(self, path: str, body: dict):
+    def _patch_json(self, path: str, body: Mapping[str, Any]) -> Any:
         """PATCH JSON (edit a todo's fields). Returns the decoded response."""
         return self._request_json("PATCH", path, json_body=body, mutate=True)
 
@@ -262,12 +265,12 @@ class TeuxDeuxClient:
     def update_todo(self, todo_id: int, text: str) -> Todo:
         """Edit a todo's text — PATCH /todos/{id} with {"text": …}. Returns the updated Todo.
 
-        (Toggling done is a separate sub-resource; use set_done. Reverse-engineered June 2026.)
+        (Toggling done is a separate sub-resource; use set_done. Confirmed live, June 2026.)
         """
         path = TODO_PATH.format(ws=self._ws_required(), id=todo_id)
         data = self._patch_json(path, {"text": text})
         return Todo.from_api(data.get("todo", data))
 
     def delete_todo(self, todo_id: int) -> None:
-        """Delete a todo — DELETE /todos/{id} (server returns 204). Reverse-engineered June 2026."""
+        """Delete a todo — DELETE /todos/{id} (server returns 204). Confirmed live, June 2026."""
         self._delete(TODO_PATH.format(ws=self._ws_required(), id=todo_id))

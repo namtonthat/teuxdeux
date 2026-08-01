@@ -3,14 +3,13 @@
 Credentials from env (TEUXDEUX_USERNAME / TEUXDEUX_PASSWORD); commands print JSON.
 """
 
-from __future__ import annotations
-
 import argparse
-import dataclasses
 import datetime as dt
 import json
 import os
 import sys
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -25,7 +24,7 @@ def _credentials() -> tuple[str, str]:
     return username, password
 
 
-def apply_ops(client, ops: list[dict]) -> list[dict]:
+def apply_ops(client: TeuxDeuxClient, ops: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Run a batch of mutations against one logged-in client, in order, returning one result
     per op. A failing op is reported as {"ok": False, "error": …} and does NOT abort the rest,
     so a single bad delete can't strand the creates that follow it. Op shapes:
@@ -35,7 +34,7 @@ def apply_ops(client, ops: list[dict]) -> list[dict]:
       {"op": "edit", "id": int, "text": str}
       {"op": "delete", "id": int}
     """
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for op in ops:
         kind = op.get("op")
         try:
@@ -87,9 +86,9 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("apply", help="run a JSON array of ops (from stdin) in one session")
     args = parser.parse_args(argv)
 
-    since = args.__dict__.get("since")
-    until = args.__dict__.get("until")
-    if args.__dict__.get("lookback") is not None:
+    since = getattr(args, "since", None)
+    until = getattr(args, "until", None)
+    if getattr(args, "lookback", None) is not None:
         since = (dt.date.today() - dt.timedelta(days=args.lookback)).isoformat()
         until = until or dt.date.today().isoformat()
 
@@ -97,7 +96,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         with TeuxDeuxClient(username, password) as client:
             if args.cmd == "user":
-                print(json.dumps(dataclasses.asdict(client.user()), indent=2))
+                print(json.dumps(client.user().to_dict(), indent=2))
             elif args.cmd == "workspaces":
                 print(json.dumps(client.workspaces(), indent=2))
             elif args.cmd == "set-done":
