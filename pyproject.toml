@@ -25,7 +25,7 @@ dependencies = [
 Repository = "https://github.com/namtonthat/teuxdeux"
 Documentation = "https://github.com/namtonthat/teuxdeux#readme"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.9"]
 
 [project.scripts]

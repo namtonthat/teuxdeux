@@ -2,7 +2,7 @@
 #
 # Set up teuxdeux for local development:
 #   1. create a virtual environment
-#   2. install the package (with dev extras) in editable mode
+#   2. install the package (with dev tools) in editable mode
 #   3. scaffold a .env from .env.example
 #
 # Re-running is safe — existing files are left untouched.
@@ -24,8 +24,8 @@ if command -v uv >/dev/null 2>&1; then
     info "Creating virtual environment with uv"
     uv venv
   fi
-  info "Installing teuxdeux (editable, with dev extras)"
-  uv pip install -e ".[dev]"
+  info "Installing teuxdeux (editable, with dev tools)"
+  uv sync
 else
   warn "uv not found — falling back to python -m venv + pip"
   if [ ! -d ".venv" ]; then
@@ -34,9 +34,9 @@ else
   fi
   # shellcheck disable=SC1091
   source .venv/bin/activate
-  info "Installing teuxdeux (editable, with dev extras)"
-  python -m pip install --upgrade pip >/dev/null
-  python -m pip install -e ".[dev]"
+  info "Installing teuxdeux (editable, with dev tools)"
+  python -m pip install --upgrade "pip>=25.1" >/dev/null
+  python -m pip install -e . --group dev
 fi
 
 # --- 3: .env scaffold ------------------------------------------------------

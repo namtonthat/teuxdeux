@@ -151,7 +151,7 @@ Undated ("list") todos have `current_date = null`.
 Issues and PRs welcome. To get a dev environment:
 
 ```sh
-./scripts/setup.sh          # or: uv venv && uv pip install -e ".[dev]"
+./scripts/setup.sh          # or: uv sync
 source .venv/bin/activate
 pytest                      # offline model tests (tests/fixtures/*.json)
 pytest -m live              # live login + fetch (needs real credentials in .env)
